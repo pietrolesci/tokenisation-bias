@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import colorlog
+import srsly
 from datasets import IterableDataset, load_dataset
 
 from tokenizers import Tokenizer
@@ -27,14 +28,15 @@ logger.addHandler(handler)
 
 # Global options
 MAX_VOCAB_SIZE = 128 * 2000
-EOS_TOKEN = "|endoftext|"
+EOS_TOKEN = "<|endoftext|>"
 NUM_DOCS = 1_000_000
 BATCH_SIZE = 1_000
 
 if __name__ == "__main__":
     start_time = time.time()
+
     logger.info(f"Training tokenizer with vocab size {MAX_VOCAB_SIZE} on dataset with {NUM_DOCS} docs")
-    
+
     # Define the trainer
     trainer = BpeTrainer(vocab_size=MAX_VOCAB_SIZE, min_frequency=2, special_tokens=[EOS_TOKEN], show_progress=True)  # type: ignore
     logger.info(f"Trainer: {trainer}")
@@ -75,6 +77,10 @@ if __name__ == "__main__":
     folder_path.mkdir(parents=True, exist_ok=True)
     for fl in filenames:
         shutil.move(fl, folder_path / fl)
+
+    srsly.write_yaml(
+        folder_path / "metadata.yaml", {"max_vocab_size": MAX_VOCAB_SIZE, "num_docs": NUM_DOCS, "eos_token": EOS_TOKEN}
+    )
 
     # Compute the total runtime
     logger.info(f"Total runtime: {int((start_time - time.time()) / 60)} minutes")
