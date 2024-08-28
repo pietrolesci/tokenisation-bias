@@ -16,6 +16,10 @@ dependencies = [
     "datasets>=2.21.0",
     "colorlog>=6.8.2",
     "tokenizers",
+    "srsly>=2.4.8",
+    "plotnine>=0.13.6",
+    "datatrove>=0.3.0",
+    "hf-transfer>=0.1.8",
 ]
 
 [build-system]
