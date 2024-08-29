@@ -1,10 +1,8 @@
 import json
-import logging
 import os
 from argparse import ArgumentParser
 from pathlib import Path
 
-import colorlog
 import srsly
 from datatrove.executor.local import LocalPipelineExecutor
 from datatrove.pipeline.readers import ParquetReader
@@ -14,24 +12,19 @@ from datatrove.utils.dataset import DatatroveFolderDataset
 from huggingface_hub import HfApi
 from transformers import PreTrainedTokenizerFast  # type: ignore
 
+from src.utilities import get_logger
 from tokenizers import Tokenizer
 
 # Configure the logger and configure colorlog
-logger = logging.getLogger("tok-inference")
-logger.setLevel(logging.INFO)
-handler = colorlog.StreamHandler()
-handler.setFormatter(
-    colorlog.ColoredFormatter(
-        "[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s"
-    )
-)
-logger.addHandler(handler)
+logger = get_logger("tok-inference", "info")
+
 
 # Global options
 HF_URL = "hf://datasets"
 USERNAME = "pietrolesci"
 
 
+# Utility functions
 def check_repo(repo_id: str) -> None:
     """Check if HuggingFace repo exists. If not, create it."""
     api = HfApi()
@@ -49,8 +42,19 @@ def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrai
 
     # Edit conf to adapt to the new vocab_size
     conf: dict = srsly.read_json(path / "tokenizer.json")  # type: ignore
+
+    # get the number of initial characters used by BPE, these are the things that get merged
     len_alphabet = len(conf["model"]["vocab"]) - len(conf["model"]["merges"])
+
+    logger.info(
+        f"Creating tokenizer with {vocab_size=}, with initial alphabet of {len_alphabet} characters"
+        f"and {vocab_size - len_alphabet} merges"
+    )
+
+    # the vocab size includes the initial alphabet
     conf["model"]["vocab"] = dict(list(conf["model"]["vocab"].items())[:vocab_size])
+
+    # but the merges need to be less, such that vocab_size = num_merges + initial_alphabet
     conf["model"]["merges"] = conf["model"]["merges"][: vocab_size - len_alphabet]
 
     # Instantiate tokenizer using tokenizers library
@@ -63,6 +67,7 @@ def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrai
     tok = PreTrainedTokenizerFast(tokenizer_object=backend_tok)
 
     # Add common configs for decoder-only models
+    logger.info(f"Setting EOS token to {eos_token} and padding_size to `left`")
     tok.padding_side = "left"  # type: ignore
     tok.eos_token = eos_token  # type: ignore
 

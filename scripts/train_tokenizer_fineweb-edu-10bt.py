@@ -1,13 +1,12 @@
 import datetime
-import logging
 import shutil
 import time
 from pathlib import Path
 
-import colorlog
 import srsly
 from datasets import IterableDataset, load_dataset
 
+from src.utilities import get_logger
 from tokenizers import Tokenizer
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.models import BPE
@@ -16,21 +15,13 @@ from tokenizers.processors import ByteLevel as ByteLevelProcessor
 from tokenizers.trainers import BpeTrainer
 
 # Configure the logger and configure colorlog
-logger = logging.getLogger("tok-train")
-logger.setLevel(logging.INFO)
-handler = colorlog.StreamHandler()
-handler.setFormatter(
-    colorlog.ColoredFormatter(
-        "[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s"
-    )
-)
-logger.addHandler(handler)
+logger = get_logger("tok-train", "info")
 
 # Global options
 MAX_VOCAB_SIZE = 128 * 2000
 EOS_TOKEN = "<|endoftext|>"
-NUM_DOCS = 1_000_000
-BATCH_SIZE = 1_000
+NUM_DOCS = 9_000_000  # out of 9.67M
+BATCH_SIZE = 10_000
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -41,7 +32,7 @@ if __name__ == "__main__":
     trainer = BpeTrainer(vocab_size=MAX_VOCAB_SIZE, min_frequency=2, special_tokens=[EOS_TOKEN], show_progress=True)  # type: ignore
     logger.info(f"Trainer: {trainer}")
 
-    # Define the tokenizer and set up the tokenizer components
+    # Define the tokenizer and set up the tokenizer components (this is a GPT-2 tokenizer)
     tokenizer = Tokenizer(BPE())
     tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False, trim_offsets=True, use_regex=True)  # type: ignore
     tokenizer.post_processor = ByteLevelProcessor()  # type: ignore
