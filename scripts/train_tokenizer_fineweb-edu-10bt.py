@@ -22,6 +22,7 @@ MAX_VOCAB_SIZE = 128 * 2500
 EOS_TOKEN = "<|endoftext|>"
 NUM_DOCS = 9_500_000  # out of 9.67M
 BATCH_SIZE = 1_000  # don't make this too big otherwise it actually slows down
+OUTPUT_DIR = "./outputs/tokenizer_train/"
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     logger.info("All files written!")
 
     logger.info("Tidying: Moving files to folder")
-    path = Path("./tokenizer_train/")
+    path = Path(OUTPUT_DIR)
     folder_path = path / datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     folder_path.mkdir(parents=True, exist_ok=True)
     for fl in filenames:

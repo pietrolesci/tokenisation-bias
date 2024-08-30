@@ -8,6 +8,7 @@ from datatrove.pipeline.tokens.merger import DocumentTokenizerMerger
 from datatrove.pipeline.tokens.tokenizer import DocumentTokenizer
 from datatrove.utils.dataset import DatatroveFolderDataset
 from huggingface_hub import HfApi
+from transformers import AutoTokenizer
 
 from src.utilities import get_logger, load_tokenizer_with_vocab_size
 
@@ -19,6 +20,13 @@ logger = get_logger("tok-inference", "info")
 HF_URL = "hf://datasets"
 USERNAME = "pietrolesci"
 LIMIT = -1  # NOTE: set to -1 when not debugging
+PATHS = {
+    "fineweb-edu-10BT": (
+        "hf://datasets/HuggingFaceFW/fineweb-edu/sample/10BT",
+        f"hf://datasets/{USERNAME}/fineweb-edu-10BT",
+    ),
+    "slim-pajama-validation": ("data/slim-pajama-validation", f"hf://datasets/{USERNAME}/slim-pajama-validation"),
+}
 
 
 # Utility functions
@@ -37,22 +45,29 @@ def check_repo(repo_id: str) -> None:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--raw_tok_path", type=str)
-    parser.add_argument("--vocab_size", type=int)
+    parser.add_argument("--vocab_size", type=int, default=None)
+    parser.add_argument("--dataset_name", type=str, default="fineweb-edu-10BT")
     args = parser.parse_args()
 
     logger.info(f"Tokenizing corpus with tokenizer at {args.raw_tok_path} and {args.vocab_size=}")
 
     # Load tokenizer and adapt its vocabulary
     raw_tok_path = Path(args.raw_tok_path)
-    tok = load_tokenizer_with_vocab_size(raw_tok_path, args.vocab_size)
+    try:
+        logger.info("Tokenizer (transfomers-compatible) already created. Loading it")
+        tok = AutoTokenizer.from_pretrained(str(raw_tok_path), clean_up_tokenization_spaces=False)
+
+    except OSError:
+        assert args.vocab_size is not None
+        logger.info(f"Creating tokenizer with {args.vocab_size=} (transfomers-compatible) and loading it")
+        tok = load_tokenizer_with_vocab_size(raw_tok_path, args.vocab_size)
 
     # Save PreTrainedTokenizerFast so its easier to load it from transfomers and datatrove
-    tok_name = f"tok-vocab{args.vocab_size}"
+    tok_name = f"tok-vocab{tok.vocab_size}"
     tok.save_pretrained(str(raw_tok_path / tok_name))  # type: ignore
 
     # Prepare reading from HF Hub
-    source_repo = "hf://datasets/HuggingFaceFW/fineweb-edu/sample/10BT"
-    target_repo = f"hf://datasets/{USERNAME}/fineweb-edu-10BT"
+    source_repo, target_repo = PATHS[args.dataset_name]
     check_repo(target_repo)
 
     # Step 1. Read and Tokenize. This part of the pipeline is local
