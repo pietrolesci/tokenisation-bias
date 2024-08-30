@@ -1,7 +1,13 @@
+import json
 import logging
+from pathlib import Path
 from typing import Literal
 
 import colorlog
+import srsly
+from transformers import PreTrainedTokenizerFast  # type: ignore
+
+from tokenizers import Tokenizer
 
 
 def get_logger(name: str, level: Literal["error", "warning", "info", "debug"] = "info") -> logging.Logger:
@@ -19,3 +25,35 @@ def get_logger(name: str, level: Literal["error", "warning", "info", "debug"] = 
     )
     logger.addHandler(handler)
     return logger
+
+
+def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrainedTokenizerFast:
+    path = Path(path)
+
+    # Edit conf to adapt to the new vocab_size
+    conf: dict = srsly.read_json(path / "tokenizer.json")  # type: ignore
+
+    # get the number of initial characters used by BPE, these are the things that get merged
+    len_alphabet = len(conf["model"]["vocab"]) - len(conf["model"]["merges"])
+
+    # the vocab size includes the initial alphabet
+    vocab_sorted_by_token_id = sorted(conf["model"]["vocab"].items(), key=lambda item: item[1])
+    conf["model"]["vocab"] = dict(vocab_sorted_by_token_id[:vocab_size])
+
+    # but the merges need to be less, such that vocab_size = num_merges + initial_alphabet
+    conf["model"]["merges"] = conf["model"]["merges"][: vocab_size - len_alphabet]
+
+    # Instantiate tokenizer using tokenizers library
+    backend_tok = Tokenizer.from_str(json.dumps(conf))
+    eos_token: str = srsly.read_yaml(path / "metadata.yaml")["eos_token"]  # type: ignore
+
+    # Instantiate PreTrainedTokenizerFast from object
+    # NOTE: we do not instantiate from file directly due to compatibility
+    # https://github.com/huggingface/tokenizers/issues/1562#issuecomment-2315349846
+    tok = PreTrainedTokenizerFast(tokenizer_object=backend_tok)
+
+    # Add common configs for decoder-only models
+    tok.padding_side = "left"  # type: ignore
+    tok.eos_token = eos_token  # type: ignore
+
+    return tok

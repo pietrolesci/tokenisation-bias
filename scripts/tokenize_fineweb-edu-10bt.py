@@ -1,19 +1,15 @@
-import json
 import os
 from argparse import ArgumentParser
 from pathlib import Path
 
-import srsly
 from datatrove.executor.local import LocalPipelineExecutor
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.tokens.merger import DocumentTokenizerMerger
 from datatrove.pipeline.tokens.tokenizer import DocumentTokenizer
 from datatrove.utils.dataset import DatatroveFolderDataset
 from huggingface_hub import HfApi
-from transformers import PreTrainedTokenizerFast  # type: ignore
 
-from src.utilities import get_logger
-from tokenizers import Tokenizer
+from src.utilities import get_logger, load_tokenizer_with_vocab_size
 
 # Configure the logger and configure colorlog
 logger = get_logger("tok-inference", "info")
@@ -35,43 +31,6 @@ def check_repo(repo_id: str) -> None:
         logger.info(f"Created HuggingFace repo: {repo_id}")
     else:
         logger.info(f"HuggingFace repo already exists: {repo_id}")
-
-
-def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrainedTokenizerFast:
-    path = Path(path)
-
-    # Edit conf to adapt to the new vocab_size
-    conf: dict = srsly.read_json(path / "tokenizer.json")  # type: ignore
-
-    # get the number of initial characters used by BPE, these are the things that get merged
-    len_alphabet = len(conf["model"]["vocab"]) - len(conf["model"]["merges"])
-
-    logger.info(
-        f"Creating tokenizer with {vocab_size=}, with initial alphabet of {len_alphabet} characters"
-        f"and {vocab_size - len_alphabet} merges"
-    )
-
-    # the vocab size includes the initial alphabet
-    conf["model"]["vocab"] = dict(list(conf["model"]["vocab"].items())[:vocab_size])
-
-    # but the merges need to be less, such that vocab_size = num_merges + initial_alphabet
-    conf["model"]["merges"] = conf["model"]["merges"][: vocab_size - len_alphabet]
-
-    # Instantiate tokenizer using tokenizers library
-    backend_tok = Tokenizer.from_str(json.dumps(conf))
-    eos_token: str = srsly.read_yaml(path / "metadata.yaml")["eos_token"]  # type: ignore
-
-    # Instantiate PreTrainedTokenizerFast from object
-    # NOTE: we do not instantiate from file directly due to compatibility
-    # https://github.com/huggingface/tokenizers/issues/1562#issuecomment-2315349846
-    tok = PreTrainedTokenizerFast(tokenizer_object=backend_tok)
-
-    # Add common configs for decoder-only models
-    logger.info(f"Setting EOS token to {eos_token} and padding_size to `left`")
-    tok.padding_side = "left"  # type: ignore
-    tok.eos_token = eos_token  # type: ignore
-
-    return tok
 
 
 if __name__ == "__main__":
