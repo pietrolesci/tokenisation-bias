@@ -14,6 +14,7 @@ def wsd_schedule(
     frac_decay: float,
     decay_type: Literal["cosine", "mirror_cosine", "linear", "exp", "square", "sqrt"],
 ) -> Callable:
+    # https://github.com/epfml/schedules-and-scaling/blob/6e8b7f952420c928cc09a0e4bda9678e2bf42e5f/src/optim/utils.py#L55
     num_anneal_steps = int(frac_decay * num_training_steps)
     num_hold = num_training_steps - num_anneal_steps
 

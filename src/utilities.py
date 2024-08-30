@@ -50,7 +50,7 @@ def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrai
     # Instantiate PreTrainedTokenizerFast from object
     # NOTE: we do not instantiate from file directly due to compatibility
     # https://github.com/huggingface/tokenizers/issues/1562#issuecomment-2315349846
-    tok = PreTrainedTokenizerFast(tokenizer_object=backend_tok)
+    tok = PreTrainedTokenizerFast(tokenizer_object=backend_tok, clean_up_tokenization_spaces=True)
 
     # Add common configs for decoder-only models
     tok.padding_side = "left"  # type: ignore

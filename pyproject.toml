@@ -21,7 +21,7 @@ dependencies = [
     "accelerate>=0.33.0",
     "tensorboard>=2.17.1",
     "torch>=2.4.0",
-    "flash-attn",
+    "flash-attn>=2.6.3",
     "transformers",
 ]
 

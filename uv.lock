@@ -1818,7 +1818,7 @@ requires-dist = [
     { name = "colorlog", specifier = ">=6.8.2" },
     { name = "datasets", specifier = ">=2.21.0" },
     { name = "datatrove", specifier = ">=0.3.0" },
-    { name = "flash-attn" },
+    { name = "flash-attn", specifier = ">=2.6.3" },
     { name = "hf-transfer", specifier = ">=0.1.8" },
     { name = "huggingface-hub", specifier = ">=0.24.6" },
     { name = "ipykernel", specifier = ">=6.29.5" },

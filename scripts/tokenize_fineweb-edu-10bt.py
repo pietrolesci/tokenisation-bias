@@ -18,7 +18,7 @@ logger = get_logger("tok-inference", "info")
 # Global options
 HF_URL = "hf://datasets"
 USERNAME = "pietrolesci"
-
+LIMIT = -1  # NOTE: set to -1 when not debugging
 
 # Utility functions
 def check_repo(repo_id: str) -> None:
@@ -39,6 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("--vocab_size", type=int)
     args = parser.parse_args()
 
+    logger.info(f"Tokenizing corpus with tokenizer at {args.raw_tok_path} and {args.vocab_size=}")
+
     # Load tokenizer and adapt its vocabulary
     raw_tok_path = Path(args.raw_tok_path)
     tok = load_tokenizer_with_vocab_size(raw_tok_path, args.vocab_size)
@@ -55,7 +57,7 @@ if __name__ == "__main__":
     # Step 1. Read and Tokenize. This part of the pipeline is local
     dist_executor = LocalPipelineExecutor(
         pipeline=[
-            ParquetReader(source_repo, limit=10000),  # NOTE: remove limit when not debugging
+            ParquetReader(source_repo, limit=LIMIT), 
             DocumentTokenizer(
                 local_working_dir=".datatrove/tmp/tokenized/",
                 output_folder=".datatrove/scratch/tokenized/",
@@ -90,7 +92,7 @@ if __name__ == "__main__":
 
     # test reading capabilities
     ds = DatatroveFolderDataset(folder_path=f"{target_repo}/{tok_name}", seq_len=100, shuffle=False)
-    logger.info("Reading tokenized dataset from HF Hub\nLength", len(ds[0]["input_ids"]), ds[0])
+    logger.info(f"Reading tokenized dataset from HF Hub with {len(ds)=}\n{ds[0]}")
 
     # remove temp files
     logger.info("Removing temporary folders")
