@@ -18,10 +18,10 @@ from tokenizers.trainers import BpeTrainer
 logger = get_logger("tok-train", "info")
 
 # Global options
-MAX_VOCAB_SIZE = 128 * 2000
+MAX_VOCAB_SIZE = 128 * 2500
 EOS_TOKEN = "<|endoftext|>"
-NUM_DOCS = 9_000_000  # out of 9.67M
-BATCH_SIZE = 10_000
+NUM_DOCS = 9_500_000  # out of 9.67M
+BATCH_SIZE = 1_000  # don't make this too big otherwise it actually slows down
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     logger.info("All files written!")
 
     logger.info("Tidying: Moving files to folder")
-    path = Path("./outputs/tokenizers/")
+    path = Path("./tokenizer_train/")
     folder_path = path / datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     folder_path.mkdir(parents=True, exist_ok=True)
     for fl in filenames:
