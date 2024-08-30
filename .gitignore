@@ -166,3 +166,4 @@ cython_debug/
 .datatrove
 outputs
 tokenizer_train
+data

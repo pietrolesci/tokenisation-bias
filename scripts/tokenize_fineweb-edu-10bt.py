@@ -20,6 +20,7 @@ HF_URL = "hf://datasets"
 USERNAME = "pietrolesci"
 LIMIT = -1  # NOTE: set to -1 when not debugging
 
+
 # Utility functions
 def check_repo(repo_id: str) -> None:
     """Check if HuggingFace repo exists. If not, create it."""
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     # Step 1. Read and Tokenize. This part of the pipeline is local
     dist_executor = LocalPipelineExecutor(
         pipeline=[
-            ParquetReader(source_repo, limit=LIMIT), 
+            ParquetReader(source_repo, limit=LIMIT),
             DocumentTokenizer(
                 local_working_dir=".datatrove/tmp/tokenized/",
                 output_folder=".datatrove/scratch/tokenized/",
