@@ -14,7 +14,7 @@ from transformers import (
     PreTrainedTokenizerFast,  # type: ignore
 )
 
-from src.utilities import get_logger, load_tokenizer_with_vocab_size
+from src.utilities import get_logger
 
 # Configure the logger and configure colorlog
 logger = get_logger("tok-inference", "info")
@@ -49,6 +49,9 @@ def check_repo(repo_id: str) -> None:
 def process_with_datatrove(
     source_repo: str, target_repo: str, tokenizer_name_or_path: str, eos_token: str, tok_name: str
 ) -> None:
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    hub_folder = f"{target_repo}/{tok_name}"
+
     # Step 1. Read and Tokenize. This part of the pipeline is local
     dist_executor = LocalPipelineExecutor(
         pipeline=[
@@ -60,7 +63,7 @@ def process_with_datatrove(
                 max_tokens_per_file=10**10,
                 shuffle=False,
                 seed=42,
-                tokenizer_name_or_path=tokenizer_name_or_path,
+                tokenizer_name_or_path=f"{tokenizer_name_or_path}/tokenizer.json",
                 eos_token=eos_token,  # type: ignore
             ),
         ],
@@ -73,7 +76,7 @@ def process_with_datatrove(
         pipeline=[
             DocumentTokenizerMerger(
                 input_folder=".datatrove/scratch/tokenized/",
-                output_folder=f"{target_repo}/{tok_name}",
+                output_folder=hub_folder,
                 save_filename=tok_name,
                 max_tokens_per_file=10**10,
                 shuffle=False,
@@ -86,8 +89,8 @@ def process_with_datatrove(
     merge_executor.run()
 
     # test reading capabilities
-    ds = DatatroveFolderDataset(folder_path=f"{target_repo}/{tok_name}", seq_len=100, shuffle=False)
-    logger.info(f"Reading tokenized dataset from HF Hub with {len(ds)=}\n{ds[0]}")
+    ds = DatatroveFolderDataset(folder_path=hub_folder, seq_len=100, shuffle=False)
+    logger.info(f"Reading tokenized dataset from {hub_folder=} with {len(ds)=}\n{ds[0]}")
 
     # remove temp files
     logger.info("Removing temporary folders")
@@ -112,43 +115,35 @@ def process_with_datasets(source_repo: str, target_repo: str, tok: PreTrainedTok
 # Start
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--raw_tok_path", type=str)
-    parser.add_argument("--vocab_size", type=int, default=None)
+    parser.add_argument("--tok_path", type=str)
     parser.add_argument("--dataset_name", type=str, default="fineweb-edu-10BT")
     args = parser.parse_args()
 
-    logger.info(f"Tokenizing corpus with tokenizer at {args.raw_tok_path} and {args.vocab_size=}")
 
     # Load tokenizer and adapt its vocabulary
-    raw_tok_path = Path(args.raw_tok_path)
-    try:
-        logger.info("Tokenizer (transfomers-compatible) already created. Loading it")
-        tok: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained(
-            str(raw_tok_path), clean_up_tokenization_spaces=False
-        )  # type: ignore
-
-    except OSError:
-        assert args.vocab_size is not None
-        logger.info(f"Creating tokenizer with {args.vocab_size=} (transfomers-compatible) and loading it")
-        tok = load_tokenizer_with_vocab_size(raw_tok_path, args.vocab_size)
-
-    # Save PreTrainedTokenizerFast so its easier to load it from transfomers and datatrove
-    tok_name = f"tok-vocab{tok.vocab_size}"
-    tok.save_pretrained(str(raw_tok_path / tok_name))  # type: ignore
+    tok_path = Path(args.tok_path)
+    tok: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained(
+        str(tok_path), clean_up_tokenization_spaces=False
+    )  # type: ignore
+    logger.info(f"tok: {tok.vocab_size}, {max(tok.get_vocab().values())}")
 
     # Prepare reading from HF Hub
+    tok_name = f"tok-vocab{tok.vocab_size}"
     source_repo, target_repo = PATHS[args.dataset_name]
     should_use_datatrove = source_repo.startswith("hf://dataset")
 
+    logger.info(f"Tokenizing corpus with tokenizer at {args.tok_path} and {tok.vocab_size=}")
+    
     if should_use_datatrove:
         # eos automatically set for training data
         check_repo(target_repo)
+        logger.info(f"New folder will be created at {target_repo}/{tok_path.name}")
         process_with_datatrove(
             source_repo=source_repo,
             target_repo=target_repo,
-            tokenizer_name_or_path=str(raw_tok_path / tok_name / "tokenizer.json"),
+            tokenizer_name_or_path=str(tok_path),
             eos_token=tok.eos_token,
-            tok_name=tok_name,
+            tok_name=tok_path.name,
         )
     else:
         # Here we do not need the eos since it is validation
