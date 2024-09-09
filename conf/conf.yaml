@@ -1,0 +1,59 @@
+# =========================
+# Experiment configurations
+# =========================
+defaults:
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+
+hydra:
+
+  # adds colorlog to logging
+  job_logging:
+    formatters:
+      colorlog:
+        format: '[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s'
+        log_colors:
+          DEBUG: purple
+          INFO: green
+          WARNING: yellow
+          ERROR: red
+          CRITICAL: bold_red
+
+  # tells hydra to make the run/dir the current working director
+  job:
+    chdir: true
+
+  # folder structure
+  run:
+    dir: ./outputs/model_training/${run_folder}
+  sweep:
+    dir: ./outputs/multirun/model_training
+    subdir: ${run_folder}_${hydra.job.id}
+
+
+# training
+tok_name: bpe64000
+tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
+
+dataset_repo: hf://datasets/pietrolesci/fineweb-edu-10BT
+
+model: pythia
+resume_from_checkpoint: null
+
+run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
+
+
+# optimisation
+batch_size: 32
+gradient_accumulation_steps: 2
+lr: 1e-3
+lr_scheduler: wsd
+weight_decay: 0.1
+warmup_steps: 2_000
+max_steps: 50_000
+torch_compile: true
+# NOTE: the other TrainingArguments are hard-coded at src/trainer.py/DEFAULT_TRAINING_ARGS
+
+

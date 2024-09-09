@@ -1,6 +1,8 @@
 # import shutil
 
 # import torch
+import os
+
 from datatrove.utils.dataset import DatatroveFolderDataset
 from huggingface_hub import HfApi
 from torch import Tensor
@@ -76,8 +78,9 @@ class LMTrainer(Trainer):
     def get_train_dataloader(self) -> DataLoader:
         ds = DatatroveFolderDataset(
             folder_path=self.data_path,
+            filename_pattern=f"{self.data_path}/*.ds",
             seq_len=self.config.max_position_embeddings,
-            shuffle=True,
+            shuffle=False,
             seed=42,
             token_size=2 if self.config.vocab_size < 65_000 else 4,
         )
@@ -174,3 +177,66 @@ class LMTrainer(Trainer):
     # #         self.push_in_progress = PushInProgress(push_jobs)  # type: ignore
     # #     else:
     # #         self.push_in_progress.jobs.extend(push_jobs)  # type: ignore
+
+
+DEFAULT_TRAINING_ARGS = dict(
+    # =======
+    # logging
+    # =======
+    output_dir="./checkpoints",  # hydra takes care of moving into correct experiment folder
+    logging_dir="./",  # hydra takes care of moving into correct experiment folder
+    logging_strategy="steps",
+    logging_first_step=True,
+    log_level="passive",  # takes it from global
+    logging_steps=1,
+    report_to="tensorboard",
+    include_num_input_tokens_seen=True,
+    # =============
+    # checkpointing
+    # =============
+    save_strategy="steps",
+    save_steps=500,
+    save_safetensors=True,
+    # ===========
+    # push to hub
+    # ===========
+    # push_to_hub=True,
+    # hub_model_id=model_name,
+    # hub_strategy="all_checkpoints",
+    # hub_private_repo=True,
+    # =====
+    # setup
+    # =====
+    eval_strategy="no",
+    seed=42,
+    bf16=True,
+    bf16_full_eval=True,
+    tf32=True,
+    # ============
+    # optimisation
+    # ============
+    optim="adamw_torch",
+    adam_beta1=0.9,
+    adam_beta2=0.95,
+    adam_epsilon=1e-8,
+    max_grad_norm=1.0,
+    num_train_epochs=1,
+    # ===========
+    # dataloading
+    # ===========
+    dataloader_num_workers=os.cpu_count() - 1,  # type: ignore
+    dataloader_pin_memory=True,
+)
+
+
+def get_scheduler_kwargs(name: str) -> dict:
+    if name == "wsd":
+        return {
+            "lr_scheduler_kwargs": {
+                "final_lr_factor": 0.0,
+                "init_div_factor": 100,
+                "frac_decay": 0.2,
+                "decay_type": "sqrt",
+            }
+        }
+    return {"lr_scheduler_type": name}
