@@ -55,16 +55,24 @@ def process_with_datatrove(
     # Step 1. Read and Tokenize. This part of the pipeline is local
     dist_executor = LocalPipelineExecutor(
         pipeline=[
-            ParquetReader(source_repo, limit=LIMIT),
+            ParquetReader(
+                source_repo,
+                file_progress=True,
+                doc_progress=True,
+                shuffle_files=False,
+                text_key="text",
+                id_key="id",
+                limit=LIMIT,
+            ),
             DocumentTokenizer(
-                local_working_dir=".datatrove/tmp/tokenized/",
                 output_folder=".datatrove/scratch/tokenized/",
+                local_working_dir=".datatrove/tmp/tokenized/",
                 save_filename=tok_name,
                 max_tokens_per_file=10**10,
                 shuffle=False,
-                seed=42,
                 tokenizer_name_or_path=f"{tokenizer_name_or_path}/tokenizer.json",
                 eos_token=eos_token,  # type: ignore
+                # seed=42,
             ),
         ],
         logging_dir=f".datatrove/logs/tokenize_{tok_name}",
@@ -80,7 +88,7 @@ def process_with_datatrove(
                 save_filename=tok_name,
                 max_tokens_per_file=10**10,
                 shuffle=False,
-                seed=1994,
+                # seed=1994,
             )
         ],
         logging_dir=f".datatrove/logs/tokenize_{tok_name}_merge",
@@ -119,21 +127,17 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default="fineweb-edu-10BT")
     args = parser.parse_args()
 
-
     # Load tokenizer and adapt its vocabulary
     tok_path = Path(args.tok_path)
-    tok: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained(
-        str(tok_path), clean_up_tokenization_spaces=False
-    )  # type: ignore
+    tok: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained(str(tok_path), clean_up_tokenization_spaces=False)  # type: ignore
     logger.info(f"tok: {tok.vocab_size}, {max(tok.get_vocab().values())}")
 
     # Prepare reading from HF Hub
-    tok_name = f"tok-vocab{tok.vocab_size}"
     source_repo, target_repo = PATHS[args.dataset_name]
     should_use_datatrove = source_repo.startswith("hf://dataset")
 
     logger.info(f"Tokenizing corpus with tokenizer at {args.tok_path} and {tok.vocab_size=}")
-    
+
     if should_use_datatrove:
         # eos automatically set for training data
         check_repo(target_repo)
@@ -147,4 +151,4 @@ if __name__ == "__main__":
         )
     else:
         # Here we do not need the eos since it is validation
-        process_with_datasets(source_repo=source_repo, target_repo=target_repo, tok=tok, tok_name=tok_name)
+        process_with_datasets(source_repo=source_repo, target_repo=target_repo, tok=tok, tok_name=tok_path.name)
