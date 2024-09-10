@@ -8,7 +8,7 @@ logger = get_logger("tok_creation", "info")
 
 # Global options
 DEFAULT_DIR = "outputs/tokenizers"
-VOCAB_SIZES = [128 * 63, 128 * 125, ]#128 * 250, 128 * 500, 128 * 1000, 128 * 2000]
+VOCAB_SIZES = [128 * 63, 128 * 125]  # 128 * 250, 128 * 500, 128 * 1000, 128 * 2000]
 
 if __name__ == "__main__":
     parser = ArgumentParser()

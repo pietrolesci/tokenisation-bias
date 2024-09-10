@@ -28,6 +28,7 @@ dependencies = [
     "hydra-joblib-launcher>=1.2.0",
     "hydra-submitit-launcher>=1.2.0",
     "omegaconf>=2.3.0",
+    "lightning>=2.4.0",
 ]
 
 [build-system]

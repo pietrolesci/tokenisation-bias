@@ -18,7 +18,7 @@ MAX_VOCAB_SIZE = 128 * 2500
 EOS_TOKEN = "<|endoftext|>"
 NUM_DOCS = 9_500_000  # out of 9.67M
 BATCH_SIZE = 1_000  # don't make this too big otherwise it actually slows down
-OUTPUT_DIR = "./outputs/tokenizer_train/"
+OUTPUT_DIR = "./outputs/tok_train/"
 
 
 def get_bpe() -> tuple[Tokenizer, trainers.BpeTrainer]:

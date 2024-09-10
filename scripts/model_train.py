@@ -14,7 +14,7 @@ from src.trainer import DEFAULT_TRAINING_ARGS, LMTrainer, get_scheduler_kwargs
 logger = logging.getLogger("hydra")
 
 
-@hydra.main(version_base=None, config_path="../conf", config_name="conf")
+@hydra.main(version_base=None, config_path="../conf", config_name="train_conf")
 def main(cfg: DictConfig) -> None:
     # Load tokenizer
     tok_path = Path(cfg.tok_path)
@@ -34,8 +34,8 @@ def main(cfg: DictConfig) -> None:
     # Save initial checkpoints. NOTE: manually making naming nomenclature equal to the Trainer default
     model.save_pretrained("./checkpoints/checkpoint-0")
     srsly.write_yaml(
-        "model_name.yaml",
-        {"model_name": f"{cfg.model}-{model.num_parameters() / 1e6:.0f}M-{tok_path.name}"},
+        "metadata.yaml",
+        {"model_name": f"{cfg.model}-{model.num_parameters() / 1e6:.0f}M-{tok_path.name}", "tok_name": tok_path.name},
     )
 
     # Define training arguments

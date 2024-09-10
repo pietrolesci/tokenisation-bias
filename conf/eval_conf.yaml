@@ -1,0 +1,57 @@
+# =========================
+# Experiment configurations
+# =========================
+defaults:
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+
+hydra:
+
+  # adds colorlog to logging
+  job_logging:
+    formatters:
+      colorlog:
+        format: '[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s'
+        log_colors:
+          DEBUG: purple
+          INFO: green
+          WARNING: yellow
+          ERROR: red
+          CRITICAL: bold_red
+
+  # tells hydra to make the run/dir the current working director
+  job:
+    chdir: true
+
+  # folder structure
+  run:
+    dir: ./outputs/model_eval/${run_folder}
+  sweep:
+    dir: ./outputs/multirun/model_eval
+    subdir: ${run_folder}_${hydra.job.id}
+
+
+run_folder: ${now:%Y-%m-%d}T${now:%H-%M-%S}
+
+
+# experiment config
+data_path: /home/pl487/rdd/data/slim-pajama-subset-validation-sample
+
+model_path: /home/pl487/rdd/outputs/model_train/pythia-9M-bpe32000
+checkpoint: checkpoint-50000
+
+seed: 42
+
+# model config
+accelerator: gpu
+precision: bf16-true
+tf32_mode: high
+torch_compile: true
+
+# data config
+batch_size: 32
+multiprocessing_context: null
+write_interval: 10
+only_sequence_surprisal: false

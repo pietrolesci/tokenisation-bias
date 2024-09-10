@@ -27,9 +27,9 @@ hydra:
 
   # folder structure
   run:
-    dir: ./outputs/model_training/${run_folder}
+    dir: ./outputs/model_train/${run_folder}
   sweep:
-    dir: ./outputs/multirun/model_training
+    dir: ./outputs/multirun/model_train
     subdir: ${run_folder}_${hydra.job.id}
 
 
