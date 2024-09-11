@@ -8,7 +8,7 @@ logger = get_logger("tok_creation", "info")
 
 # Global options
 DEFAULT_DIR = "outputs/tokenizers"
-VOCAB_SIZES = [128 * 63, 128 * 125]  # 128 * 250, 128 * 500, 128 * 1000, 128 * 2000]
+VOCAB_SIZES = [128 * 63, 128 * 125, 128 * 250, 128 * 500, 128 * 1000, 128 * 2000]
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -20,7 +20,10 @@ if __name__ == "__main__":
     logger.info(f"Creating tokenizer at {DEFAULT_DIR}")
 
     for vocab_size in VOCAB_SIZES:
-        out_path = str(Path(DEFAULT_DIR) / f"{tok_type}{vocab_size}")
+        out_path = Path(DEFAULT_DIR) / f"{tok_type}{vocab_size}"
         logger.info(f"Saving with vocab {vocab_size=} at {out_path=}")
         tok = load_tokenizer_with_vocab_size(tok_path, vocab_size=vocab_size)
         tok.save_pretrained(str(out_path))
+        with (out_path / "raw_tok_path.txt").open(mode="w") as fl:
+            fl.write(str(tok_path.absolute()))
+
