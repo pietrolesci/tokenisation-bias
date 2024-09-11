@@ -29,6 +29,9 @@ dependencies = [
     "hydra-submitit-launcher>=1.2.0",
     "omegaconf>=2.3.0",
     "lightning>=2.4.0",
+    "causalpy>=0.4.0",
+    "statsmodels>=0.14.2",
+    "polars-u64-idx>=1.7.0",
 ]
 
 [build-system]

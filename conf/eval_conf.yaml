@@ -48,10 +48,10 @@ seed: 42
 accelerator: gpu
 precision: bf16-true
 tf32_mode: high
-torch_compile: true
+torch_compile: false
 
 # data config
-batch_size: 32
+batch_size: 256
 multiprocessing_context: null
 write_interval: 10
 only_sequence_surprisal: false

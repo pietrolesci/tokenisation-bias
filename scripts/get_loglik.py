@@ -4,17 +4,17 @@ from os import cpu_count
 from pathlib import Path
 
 import hydra
+import polars as pl
 import srsly
-from datasets import DatasetDict, concatenate_datasets, load_from_disk
-from lightning.fabric import seed_everything, Fabric
+import torch
+from datasets import load_from_disk
+from lightning.fabric import Fabric, seed_everything
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers.utils.logging import set_verbosity_warning
 from transformers import AutoModelForCausalLM
-import torch
-import polars as pl
-
+from transformers.utils.logging import set_verbosity_warning
+import numpy as np
 SEP_LINE = f"{'=' * 70}"
 MODEL_CACHE_DIR = ".model_cache"
 
@@ -22,8 +22,10 @@ log = logging.getLogger("hydra")
 
 set_verbosity_warning()
 
+
 def flatten(x: list[list]) -> list:
     return [i for j in x for i in j]
+
 
 def jsonl2parquet(filepath: str | Path, out_dir: str | Path) -> None:
     filepath = Path(filepath)
@@ -37,44 +39,68 @@ def jsonl2parquet(filepath: str | Path, out_dir: str | Path) -> None:
 
     df.write_parquet(out_dir / f"{filepath.name.removesuffix('.jsonl')}.parquet")
 
+
 def ld_to_dl(ld: list[dict]) -> dict[str, list]:
     return {k: [dic[k] for dic in ld] for k in ld[0]}
 
-def collator_fn(batch: list[dict[str, int | list[int]]]) -> dict[str, list[int] | torch.LongTensor]:
+
+def collator_fn(batch: list[dict[str, int | list[int]]]) -> dict:
     new_batch = ld_to_dl(batch)
-    new_batch["contexts"] = torch.tensor(new_batch["contexts"], dtype=torch.long)  # type: ignore
-    return new_batch  # type: ignore
 
-def compute_statistics(model: torch.nn.Module, token_ids: torch.LongTensor) -> dict:
-        """More efficient alternative that manually computes surprisal"""
-        # Forward pass
-        labels = token_ids.clone()
-        logprobs = model.forward(token_ids).log_softmax(-1)
+    # Pad from the left side
+    input_ids: list[list[int]] = new_batch["input_ids"]
+    max_length = max(len(x) for x in input_ids)
+    padded_input_ids = np.vstack([
+        # to understand this function: pad_before == max_length - len(x) and pad_after == 0
+        np.pad(x, (max_length - len(x), 0), mode='constant', constant_values=0)
+        for x in input_ids
+    ])
+    new_batch["input_ids"] = torch.tensor(padded_input_ids, dtype=torch.long)  # type: ignore
 
-        # Shift so that tokens < n predict n
-        shift_labels = labels[..., 1:].contiguous()
-        shift_logprobs = logprobs[..., :-1, :].contiguous()
+    return new_batch
 
-        # Get the log-probability of the true token
-        # (batch, seq, vocab = 1), there is an extra dim that makes it broadcastable to `shift_logprobs`
-        true_logprobs = shift_logprobs.take_along_dim(dim=-1, indices=shift_labels[..., None])
 
-        # Get surprisal, aka the negative of the log-probability
-        sup = true_logprobs.squeeze(-1).neg()
+def compute_statistics(model: torch.nn.Module, batch: dict) -> dict:
+    """More efficient alternative that manually computes surprisal"""
+    # Forward pass
+    input_ids = batch["input_ids"]
+    labels = input_ids.clone()
+    
+    # Shift so that tokens < n predict n
+    # shift_input_ids = input_ids[..., :-1].contiguous()
+    # shift_labels = labels[..., 1:].contiguous()
+    # shift_logprobs = model.forward(input_ids=shift_input_ids).logits.log_softmax(-1)
 
-        # Get the rank of the true token
-        # how many bigger token have log-probability bigger than the true token? this is the rank of the true token
-        rank = (shift_logprobs > true_logprobs).long().sum(-1)
+    logprobs = model.forward(input_ids=input_ids).logits.log_softmax(-1)
+    shift_logprobs = logprobs[..., :-1, :].contiguous()
+    shift_labels = labels[..., 1:].contiguous()
 
-        # Get the entropy
-        #  - \sum logp * p
-        entropy = (shift_logprobs * shift_logprobs.exp()).sum(-1).neg()
+    # Get the log-probability of the true token
+    # (batch, seq, vocab = 1), there is an extra dim that makes it broadcastable to `shift_logprobs`
+    true_logprobs = shift_logprobs.take_along_dim(dim=-1, indices=shift_labels[..., None])
 
-        return {
-            "sup": sup.cpu().numpy().tolist(),  # convertion to numpy works because model is outputting float32 somehow
-            "rank": rank.cpu().numpy().tolist(),
-            "entropy": entropy.cpu().numpy().tolist(),
-        }
+    # Get surprisal, aka the negative of the log-probability
+    # this returns equal results to torch.nn.functional.cross_entropy (atol: 1e-3)
+    # `torch.nn.functional.cross_entropy(shift_logits.permute(0, 2, 1), shift_labels, reduction="none")`
+    # but we gain the fact that we can compute other statistics of the true_logprobs other that the surprisal
+    sup = true_logprobs.squeeze(-1).neg()
+
+    # Get the rank of the true token
+    # how many bigger token have log-probability bigger than the true token? this is the rank of the true token
+    rank = (shift_logprobs > true_logprobs).long().sum(-1)
+
+    # Get the entropy -\sum logp * p
+    entropy = (shift_logprobs * shift_logprobs.exp()).sum(-1).neg()
+
+    # Keep only the last two tokens
+    return {
+        "new_token_id": batch["new_token_id"],
+        "uid": batch["uid"],
+        "input_ids": input_ids[:, -2:].cpu().numpy().tolist(),
+        "sup": sup[:, -2:].cpu().numpy().tolist(),  # convertion to numpy works because model is outputting float32 somehow
+        "rank": rank[:, -2:].cpu().numpy().tolist(),
+        "entropy": entropy[:, -2:].cpu().numpy().tolist(),
+    }
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="eval_conf")
@@ -93,15 +119,13 @@ def main(cfg: DictConfig) -> None:
     # ===========================
     # Step 2. Load model and data
     # ===========================
-    model_path = Path(cfg.model_path)
+    model_path = Path(cfg.model_path)     
+    model = AutoModelForCausalLM.from_pretrained(str(model_path / "checkpoints" / cfg.checkpoint))
+    
     tok_name: str = srsly.read_yaml(model_path / "metadata.yaml")["tok_name"]  # type: ignore
     data_path = Path(cfg.data_path + f"-{tok_name}")
-    assert (model_path / "checkpoints" / cfg.checkpoint).exists(), f"{model_path=} and {cfg.checkpoint=} does not exist!"
-    assert data_path.exists(), f"{data_path=} does not exist!"    
-
-    model = AutoModelForCausalLM.from_pretrained(str(model_path / "checkpoints" / cfg.checkpoint))
     dataset = load_from_disk(str(data_path / "contexts"))
-    
+
     data_loader = DataLoader(
         dataset,  # type: ignore
         batch_size=cfg.batch_size,
@@ -122,23 +146,24 @@ def main(cfg: DictConfig) -> None:
     fabric = Fabric(accelerator=cfg.accelerator, precision=cfg.precision)
     model = fabric.setup_module(model)
     model.eval()
-    
+
     if cfg.torch_compile:
         model = torch.compile(model)
 
     data_loader = fabric.setup_dataloaders(data_loader, use_distributed_sampler=False)
-    
-    log.info("Running inference")
-    pbar = tqdm(data_loader, desc="Running Inference")
-    write_buffer = []
-    FILENAME = model_path.name
 
+    FILENAME = model_path.name
+    write_buffer = []
+    pbar = tqdm(data_loader, desc="Running Inference")
     for idx, batch in enumerate(pbar):
         pbar.set_postfix_str(f"Buffer size: {len(write_buffer)}")
 
+        # show a batch
+        if idx == 0:
+            log.info(f"A batch: {batch}")
+
         with torch.inference_mode():
-            out = compute_statistics(model, batch["contexts"])  # type: ignore
-        out["seq_idx"] = batch["seq_idx"]
+            out = compute_statistics(model, batch)  # type: ignore
         write_buffer.append(out)
 
         # Write to disk
