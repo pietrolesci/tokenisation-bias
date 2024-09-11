@@ -33,7 +33,7 @@ hydra:
     subdir: ${run_folder}_${hydra.job.id}
 
 
-run_folder: ${now:%Y-%m-%d}T${now:%H-%M-%S}
+run_folder: ${get_folder_name:${model_path}}_${checkpoint}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 
 
 # experiment config

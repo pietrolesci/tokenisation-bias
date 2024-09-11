@@ -4,6 +4,7 @@ from os import cpu_count
 from pathlib import Path
 
 import hydra
+import numpy as np
 import polars as pl
 import srsly
 import torch
@@ -14,7 +15,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM
 from transformers.utils.logging import set_verbosity_warning
-import numpy as np
+
 SEP_LINE = f"{'=' * 70}"
 MODEL_CACHE_DIR = ".model_cache"
 
@@ -22,9 +23,16 @@ log = logging.getLogger("hydra")
 
 set_verbosity_warning()
 
+OmegaConf.register_new_resolver("get_folder_name", lambda x: Path(x).name)
+
 
 def flatten(x: list[list]) -> list:
     return [i for j in x for i in j]
+
+
+def remove_file(path: str | Path) -> None:
+    path = Path(path)
+    path.unlink(missing_ok=True)
 
 
 def jsonl2parquet(filepath: str | Path, out_dir: str | Path) -> None:
@@ -50,11 +58,13 @@ def collator_fn(batch: list[dict[str, int | list[int]]]) -> dict:
     # Pad from the left side
     input_ids: list[list[int]] = new_batch["input_ids"]
     max_length = max(len(x) for x in input_ids)
-    padded_input_ids = np.vstack([
-        # to understand this function: pad_before == max_length - len(x) and pad_after == 0
-        np.pad(x, (max_length - len(x), 0), mode='constant', constant_values=0)
-        for x in input_ids
-    ])
+    padded_input_ids = np.vstack(
+        [
+            # to understand this function: pad_before == max_length - len(x) and pad_after == 0
+            np.pad(x, (max_length - len(x), 0), mode="constant", constant_values=0)
+            for x in input_ids
+        ]
+    )
     new_batch["input_ids"] = torch.tensor(padded_input_ids, dtype=torch.long)  # type: ignore
 
     return new_batch
@@ -65,11 +75,6 @@ def compute_statistics(model: torch.nn.Module, batch: dict) -> dict:
     # Forward pass
     input_ids = batch["input_ids"]
     labels = input_ids.clone()
-    
-    # Shift so that tokens < n predict n
-    # shift_input_ids = input_ids[..., :-1].contiguous()
-    # shift_labels = labels[..., 1:].contiguous()
-    # shift_logprobs = model.forward(input_ids=shift_input_ids).logits.log_softmax(-1)
 
     logprobs = model.forward(input_ids=input_ids).logits.log_softmax(-1)
     shift_logprobs = logprobs[..., :-1, :].contiguous()
@@ -97,7 +102,10 @@ def compute_statistics(model: torch.nn.Module, batch: dict) -> dict:
         "new_token_id": batch["new_token_id"],
         "uid": batch["uid"],
         "input_ids": input_ids[:, -2:].cpu().numpy().tolist(),
-        "sup": sup[:, -2:].cpu().numpy().tolist(),  # convertion to numpy works because model is outputting float32 somehow
+        "sup": sup[:, -2:]
+        .cpu()
+        .numpy()
+        .tolist(),  # convertion to numpy works because model is outputting float32 somehow
         "rank": rank[:, -2:].cpu().numpy().tolist(),
         "entropy": entropy[:, -2:].cpu().numpy().tolist(),
     }
@@ -119,11 +127,10 @@ def main(cfg: DictConfig) -> None:
     # ===========================
     # Step 2. Load model and data
     # ===========================
-    model_path = Path(cfg.model_path)     
+    model_path = Path(cfg.model_path)
     model = AutoModelForCausalLM.from_pretrained(str(model_path / "checkpoints" / cfg.checkpoint))
-    
-    tok_name: str = srsly.read_yaml(model_path / "metadata.yaml")["tok_name"]  # type: ignore
-    data_path = Path(cfg.data_path + f"-{tok_name}")
+
+    data_path = Path(cfg.data_path + f"-{model_path.name}")
     dataset = load_from_disk(str(data_path / "contexts"))
 
     data_loader = DataLoader(
@@ -152,7 +159,7 @@ def main(cfg: DictConfig) -> None:
 
     data_loader = fabric.setup_dataloaders(data_loader, use_distributed_sampler=False)
 
-    FILENAME = model_path.name
+    FILENAME = f"{model_path.name}_{cfg.checkpoint}"
     write_buffer = []
     pbar = tqdm(data_loader, desc="Running Inference")
     for idx, batch in enumerate(pbar):
@@ -176,6 +183,8 @@ def main(cfg: DictConfig) -> None:
 
     # clean-up
     jsonl2parquet(filepath=f"{FILENAME}.jsonl", out_dir=".")
+    if Path(f"{FILENAME}.parquet").exists():
+        remove_file(f"{FILENAME}.jsonl")
     log.info(f"Total time: {(time.time() - start_time) // 60} minutes")
 
 

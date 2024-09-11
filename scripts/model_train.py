@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 import hydra
-import srsly
 from omegaconf import DictConfig
 from transformers import AutoTokenizer, PreTrainedTokenizerFast, set_seed
 from transformers.training_args import TrainingArguments
@@ -33,10 +32,6 @@ def main(cfg: DictConfig) -> None:
 
     # Save initial checkpoints. NOTE: manually making naming nomenclature equal to the Trainer default
     model.save_pretrained("./checkpoints/checkpoint-0")
-    srsly.write_yaml(
-        "metadata.yaml",
-        {"model_name": f"{cfg.model}-{model.num_parameters() / 1e6:.0f}M-{tok_path.name}", "tok_name": tok_path.name},
-    )
 
     # Define training arguments
     training_args = TrainingArguments(
@@ -56,6 +51,13 @@ def main(cfg: DictConfig) -> None:
         model, args=training_args, tokenizer=tok, config=config, data_path=f"{cfg.dataset_repo}/{tok_path.name}"
     )
     trainer.train(resume_from_checkpoint=cfg.resume_from_checkpoint)
+
+    # TODO: rename folder with {model_name}-{num_params}-{tok_name} automatically
+    # f"{cfg.model}-{model.num_parameters() / 1e6:.0f}M-{tok_path.name}"
+    # Rename current working directory to "cur_dir"
+    # cur_dir = Path.cwd()
+    # new_dir = cur_dir.with_name("cur_dir")
+    # cur_dir.rename(new_dir)
 
 
 if __name__ == "__main__":

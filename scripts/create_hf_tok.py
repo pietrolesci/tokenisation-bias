@@ -26,4 +26,3 @@ if __name__ == "__main__":
         tok.save_pretrained(str(out_path))
         with (out_path / "raw_tok_path.txt").open(mode="w") as fl:
             fl.write(str(tok_path.absolute()))
-
