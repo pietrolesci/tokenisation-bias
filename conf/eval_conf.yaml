@@ -36,9 +36,12 @@ hydra:
 run_folder: ${get_folder_name:${model_path}}_${checkpoint}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 
 
-# experiment config
-data_path: /home/pl487/rdd/data/slim-pajama-subset-validation-sample
+# These are automatically set for you
+tok_name: ${get_tok_name:${model_path}}  # convenience
+data_path: /home/pl487/rdd/data/slim-pajama-eval-${tok_name}
+prefix_map_path: /home/pl487/rdd/outputs/tokenizers/${tok_name}/prefix_map_${tok_name}.jsonl
 
+# Set here
 model_path: /home/pl487/rdd/outputs/model_train/pythia-9M-bpe32000
 checkpoint: checkpoint-50000
 
@@ -51,7 +54,7 @@ tf32_mode: high
 torch_compile: false
 
 # data config
-batch_size: 256
+batch_size: 128
 multiprocessing_context: null
 write_interval: 10
 only_sequence_surprisal: false

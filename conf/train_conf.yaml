@@ -34,7 +34,7 @@ hydra:
 
 
 # training
-tok_name: bpe64000
+tok_name: bpe32000
 tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
 
 dataset_repo: hf://datasets/pietrolesci/fineweb-edu-10BT
@@ -53,6 +53,7 @@ lr_scheduler: wsd
 weight_decay: 0.1
 warmup_steps: 2_000
 max_steps: 50_000
+num_train_epochs: 1
 torch_compile: true
 # NOTE: the other TrainingArguments are hard-coded at src/trainer.py/DEFAULT_TRAINING_ARGS
 

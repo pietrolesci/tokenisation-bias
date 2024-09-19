@@ -31,7 +31,8 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"Num parameters: {model.num_parameters() / 1e6:.1f}M")
 
     # Save initial checkpoints. NOTE: manually making naming nomenclature equal to the Trainer default
-    model.save_pretrained("./checkpoints/checkpoint-0")
+    if cfg.resume_from_checkpoint is None:
+        model.save_pretrained("./checkpoints/checkpoint-0")
 
     # Define training arguments
     training_args = TrainingArguments(
@@ -42,6 +43,7 @@ def main(cfg: DictConfig) -> None:
         weight_decay=cfg.weight_decay,
         warmup_steps=cfg.warmup_steps,
         max_steps=cfg.max_steps,
+        num_train_epochs=cfg.num_train_epochs,
         **get_scheduler_kwargs(cfg.lr_scheduler),  # type: ignore
         **DEFAULT_TRAINING_ARGS,  # type: ignore
     )

@@ -2,14 +2,13 @@ import shutil
 from pathlib import Path
 
 import polars as pl
-from datasets import Dataset
 from huggingface_hub import snapshot_download
 
 from src.utilities import get_logger
 
 logger = get_logger("slim-pajama")
 
-LOCAL_DIR = Path("data/slim-pajama-subset-validation")
+LOCAL_DIR = Path("data/slim-pajama-eval")
 
 if __name__ == "__main__":
     logger.info("Cloning repo from HF")
@@ -18,30 +17,34 @@ if __name__ == "__main__":
         revision="refs/convert/parquet",
         repo_type="dataset",
         local_dir=str(LOCAL_DIR / "tmp"),
-        allow_patterns=["default/partial-validation/*"],
+        allow_patterns=["default/partial-validation/*", "default/partial-test/*"],
     )
 
     logger.info("Removing {'RedPajamaGithub', 'RedPajamaStackExchange'} fields.")
+    val_df = pl.scan_parquet(str(LOCAL_DIR / "tmp" / "default" / "partial-validation" / "*.parquet")).with_columns(
+        split=pl.lit("validation")
+    )
+    test_df = pl.scan_parquet(str(LOCAL_DIR / "tmp" / "default" / "partial-test" / "*.parquet")).with_columns(
+        split=pl.lit("test")
+    )
+
     df = (
-        pl.scan_parquet(str(LOCAL_DIR / "tmp" / "default" / "partial-validation" / "*.parquet"))
+        pl.concat([val_df, test_df])
         .with_columns(meta=pl.col("meta").struct.field("redpajama_set_name"))
         .with_row_index("uid")
         .filter(pl.col("meta").is_in(["RedPajamaGithub", "RedPajamaStackExchange"]).not_())
         .collect()
     )
 
-    logger.info("Converting to HF dataset")
-    ds = Dataset.from_polars(df)
-    ds.save_to_disk(LOCAL_DIR)
-    # ds = load_from_disk(LOCAL_DIR)
+    logger.info(f"Saving to {LOCAL_DIR=}")
+    df.write_parquet(str(LOCAL_DIR) + ".parquet")
 
-    logger.info(f"Pushing to HF at {LOCAL_DIR.name}")
-    ds.push_to_hub(LOCAL_DIR.name, config_name="default")
+    # logger.info("Converting to HF dataset")
+    # ds = Dataset.from_polars(df)
+    # ds.save_to_disk(LOCAL_DIR)
 
-    # # Move files under parent
-    # path = LOCAL_DIR / "default" / "partial-validation"
-    # for filepath in path.rglob("*.parquet"):
-    #     shutil.move(filepath, str(LOCAL_DIR))
+    # logger.info(f"Pushing to HF at {LOCAL_DIR.name}")
+    # ds.push_to_hub(LOCAL_DIR.name, config_name="default")
 
     logger.info("Removing useless folders")
     shutil.rmtree(LOCAL_DIR / ".cache", ignore_errors=True)

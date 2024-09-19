@@ -2,7 +2,8 @@ import os
 from argparse import ArgumentParser
 from pathlib import Path
 
-from datasets import load_from_disk
+# from datasets import load_from_disk
+from datasets import Dataset
 from datatrove.executor.local import LocalPipelineExecutor
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.tokens.merger import DocumentTokenizerMerger
@@ -29,7 +30,7 @@ PATHS = {
         "hf://datasets/HuggingFaceFW/fineweb-edu/sample/10BT",
         f"hf://datasets/{USERNAME}/fineweb-edu-10BT",
     ),
-    "slim-pajama-subset-validation": ("data/slim-pajama-subset-validation", "slim-pajama-subset-validation"),
+    "slim-pajama-eval": ("data/slim-pajama-eval.parquet", "slim-pajama-eval"),
 }
 
 
@@ -107,7 +108,8 @@ def process_with_datatrove(
 
 
 def process_with_datasets(source_repo: str, target_repo: str, tok: PreTrainedTokenizerFast, tok_name: str) -> None:
-    ds = load_from_disk(source_repo)
+    # ds = load_from_disk(source_repo)
+    ds: Dataset = Dataset.from_parquet(source_repo)  # type: ignore
     ds = ds.map(
         lambda ex: tok(ex["text"], return_attention_mask=False, return_token_type_ids=False),
         batched=True,
