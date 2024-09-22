@@ -16,9 +16,20 @@ logger = get_logger("tok-train", "info")
 # Global options
 MAX_VOCAB_SIZE = 128 * 2500
 EOS_TOKEN = "<|endoftext|>"
-NUM_DOCS = 9_500_000  # out of 9.67M
-BATCH_SIZE = 1_000  # don't make this too big otherwise it actually slows down
-OUTPUT_DIR = "./outputs/tok_train/"
+
+
+def load_fineweb_edu_10bt(cache_dir: str) -> IterableDataset:
+    return load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True, cache_dir=cache_dir)  # type: ignore
+
+
+def load_minipile(cache_dir: str) -> IterableDataset:
+    return load_dataset("HuggingFaceFW/fineweb-edu", split="train", streaming=True, cache_dir=cache_dir)  # type: ignore
+
+
+NAME_TO_DATASET_AND_LEN = {
+    "fineweb-edu-10BT": (load_fineweb_edu_10bt, 9_500_000),  # out of 9.67M
+    "minipile": (load_minipile, 1_000_000),  # all of them
+}
 
 
 def get_bpe() -> tuple[Tokenizer, trainers.BpeTrainer]:
@@ -47,27 +58,27 @@ def get_bpe() -> tuple[Tokenizer, trainers.BpeTrainer]:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--tok_type", type=str, default="bpe")
+    parser.add_argument("--dataset", type=str, default="minipile")
+    parser.add_argument("--cache_dir", type=str, default=".data_cache")
+    parser.add_argument("--batch_size", type=int, default=1_000)
+    parser.add_argument("--out_path", type=str, default="./outputs/tok_train/")
     args = parser.parse_args()
 
     start_time = time.time()
-
-    logger.info(f"Training tokenizer with vocab size {MAX_VOCAB_SIZE} on dataset with {NUM_DOCS} docs")
 
     # Define the trainer and tokenizer
     tokenizer, trainer = get_bpe()  # if args.tok_type == "bpe" else None, None
     logger.info(f"Tokenizer: {tokenizer}")
     logger.info(f"Trainer: {trainer}")
 
-    # Stream the fineweb-edu-10BT dataset from the HF Hub
     logger.info("Preparing to stream the dataset")
-    dataset: IterableDataset = load_dataset(
-        "HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True, cache_dir=".data_cache"
-    )  # type: ignore
-    dataset = dataset.take(NUM_DOCS).select_columns(["text"]).batch(batch_size=BATCH_SIZE)
+    load_fn, num_docs = NAME_TO_DATASET_AND_LEN[args.dataset]
+    dataset = load_fn(args.cache_dir)
+    dataset = dataset.take(num_docs).select_columns(["text"]).batch(batch_size=args.batch_size)
 
     # Train
-    logger.info("Starting training")
-    tokenizer.train_from_iterator(iter(x["text"] for x in dataset), trainer, NUM_DOCS)
+    logger.info(f"Training tokenizer with vocab size {MAX_VOCAB_SIZE} on dataset with {num_docs} docs")
+    tokenizer.train_from_iterator(iter(x["text"] for x in dataset), trainer, num_docs)
     logger.info("Training done!")
 
     # Save
@@ -81,16 +92,16 @@ if __name__ == "__main__":
         time.sleep(1)
     logger.info("All files written!")
 
-    logger.info("Tidying: Moving files to folder")
-    path = Path(OUTPUT_DIR)
-    folder_path = path / ("bpe_" + datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S"))
+    path = Path(args.out_path)
+    folder_path = path / (f"bpe_{args.dataset}_" + datetime.datetime.now().strftime(r"%Y-%m-%dT%H-%M-%S"))
     folder_path.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Tidying: Moving files to {folder_path=}")
 
     for fl in filenames:
         shutil.move(fl, folder_path / fl)
 
     srsly.write_yaml(
-        folder_path / "metadata.yaml", {"max_vocab_size": MAX_VOCAB_SIZE, "num_docs": NUM_DOCS, "eos_token": EOS_TOKEN}
+        folder_path / "metadata.yaml", {"max_vocab_size": MAX_VOCAB_SIZE, "num_docs": num_docs, "eos_token": EOS_TOKEN}
     )
 
     # Compute the total runtime

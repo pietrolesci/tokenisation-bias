@@ -22,7 +22,6 @@ logger = get_logger("tok-inference", "info")
 
 
 # Global options
-HF_URL = "hf://datasets"
 USERNAME = "pietrolesci"
 LIMIT = -1  # NOTE: set to -1 when not debugging
 PATHS = {
@@ -31,6 +30,7 @@ PATHS = {
         f"hf://datasets/{USERNAME}/fineweb-edu-10BT",
     ),
     "slim-pajama-eval": ("data/slim-pajama-eval.parquet", "slim-pajama-eval"),
+    "minipile": ("hf://datasets/JeanKaddour/minipile", f"hf://datasets/{USERNAME}/minipile"),
 }
 
 
@@ -126,7 +126,7 @@ def process_with_datasets(source_repo: str, target_repo: str, tok: PreTrainedTok
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--tok_path", type=str)
-    parser.add_argument("--dataset_name", type=str, default="fineweb-edu-10BT")
+    parser.add_argument("--dataset", type=str, default="fineweb-edu-10BT")
     args = parser.parse_args()
 
     # Load tokenizer and adapt its vocabulary
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     logger.info(f"tok: {tok.vocab_size}, {max(tok.get_vocab().values())}")
 
     # Prepare reading from HF Hub
-    source_repo, target_repo = PATHS[args.dataset_name]
+    source_repo, target_repo = PATHS[args.dataset]
     should_use_datatrove = source_repo.startswith("hf://dataset")
 
     logger.info(f"Tokenizing corpus with tokenizer at {args.tok_path} and {tok.vocab_size=}")
