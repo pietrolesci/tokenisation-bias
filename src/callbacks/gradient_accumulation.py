@@ -3,8 +3,6 @@ from typing import Any
 from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.callbacks.callback import Callback
 from lightning.pytorch.utilities.model_helpers import is_overridden
-from lightning.pytorch.utilities.rank_zero import rank_zero_warn  # type: ignore
-from typing_extensions import override
 
 from src.utilities import get_logger
 
@@ -12,6 +10,8 @@ logger = get_logger("grad_accum")
 
 
 class GradientAccumulationScheduler(Callback):
+    PREFIX = "optim"
+
     def __init__(self, scheduling: dict[int, int] | None = None) -> None:
         super().__init__()
         scheduling = scheduling or {0: 1}
@@ -24,6 +24,8 @@ class GradientAccumulationScheduler(Callback):
         self.scheduling = scheduling
         self.steps = sorted(scheduling.keys())
 
+        self.counter = {"num_instances": 0, "num_batches": 0, "num_tokens": 0}
+
     def going_to_accumulate_grad_batches(self) -> bool:
         return any(v > 1 for v in self.scheduling.values())
 
@@ -35,7 +37,6 @@ class GradientAccumulationScheduler(Callback):
                 break
         return accumulate_grad_batches
 
-    @override
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Performns a configuration validation before training starts and raises errors for incompatible settings."""
 
@@ -50,7 +51,7 @@ class GradientAccumulationScheduler(Callback):
         going_to_accumulate_grad_batches = self.going_to_accumulate_grad_batches()
         has_overridden_optimization_functions = overridden_optimizer_step or overridden_optimizer_zero_grad
         if has_overridden_optimization_functions and going_to_accumulate_grad_batches:
-            rank_zero_warn(
+            logger.warning(
                 "When using `Trainer(accumulate_grad_batches != 1)` and overriding"
                 " `LightningModule.optimizer_{step,zero_grad}`, the hooks will not be called on every batch"
                 " (rather, they are called on every optimization step)."
@@ -70,14 +71,31 @@ class GradientAccumulationScheduler(Callback):
                 " callback. Either remove `accumulate_grad_batches` from the Trainer or remove the callback."
             )
 
-    @override
-    def on_train_batch_start(self, trainer: Trainer, *_: Any) -> None:
-        prev = trainer.accumulate_grad_batches
+    def on_train_batch_start(self, trainer: Trainer, pl_module: LightningModule, batch: Any, batch_idx: int) -> None:
+        # Increase counter
+        assert "input_ids" in batch, RuntimeError("This `GradientAccumulationScheduler` expects `input_ids` in batch.")
+        input_ids = batch["input_ids"]
+        self.counter["num_batches"] += 1
+        self.counter["num_instances"] += input_ids.shape[0]
+        self.counter["num_tokens"] += input_ids.numel()
+
+        # Maybe change the number of accumulated batches
+        prev_accumulate_grad_batches = trainer.accumulate_grad_batches
         trainer.accumulate_grad_batches = self.get_accumulate_grad_batches(trainer.global_step)
-        if trainer.accumulate_grad_batches != prev:
+        if trainer.accumulate_grad_batches != prev_accumulate_grad_batches:
             logger.info(
-                f"Number of accumulation batches changed from {prev} to {trainer.accumulate_grad_batches} "
-                f"at step {trainer.global_step}"
+                f"Number of accumulation batches changed from {prev_accumulate_grad_batches} "
+                f"to {trainer.accumulate_grad_batches} at step {trainer.global_step}"
             )
 
-    # TODO: log number of elements in batch
+    def on_before_optimizer_step(self, trainer: Trainer, *args, **kwargs) -> None:
+        # Log
+        for pl_logger in trainer.loggers:
+            pl_logger.log_metrics(
+                {f"{self.PREFIX}/{k}_per_step": v for k, v in self.counter.items()}, step=trainer.global_step
+            )
+
+        # Reset counter when optimization step is done
+        self.counter["num_batches"] = 0
+        self.counter["num_instances"] = 0
+        self.counter["num_tokens"] = 0

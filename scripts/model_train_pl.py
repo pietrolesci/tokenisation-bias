@@ -52,7 +52,7 @@ def main(cfg: DictConfig) -> None:
         dataloader_config=dataloader_config,
     )
     optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
-    
+
     if cfg.torch_compile:
         model = torch.compile(model)
     module = LanguageModel(model, optim_config)  # type: ignore

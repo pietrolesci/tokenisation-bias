@@ -72,15 +72,12 @@ optim:
     fused: true
     eps: 1e-8
     betas: [0.9, 0.999]
-  scheduler_name: null
-  # scheduler_name: warmup_stable_decay
-  # num_warmup_steps: 2000
+  scheduler_name: cosine
+  num_warmup_steps: 2000
   # scheduler_kwargs:
   #   num_stable_steps: 46000
   #   num_decay_steps: 2000
   #   min_lr_ratio: 0
-  #   num_cycles: 0.5
-  #   last_epoch: -1
 
 
 trainer:
@@ -92,6 +89,7 @@ trainer:
   fast_dev_run: false
   gradient_clip_val: 1.0
   gradient_clip_algorithm: norm
-  val_check_interval: 1
+  val_check_interval: 2
   max_steps: 10
   limit_val_batches: 2
+  limit_train_batches: 10

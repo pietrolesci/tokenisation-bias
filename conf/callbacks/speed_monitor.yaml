@@ -1,4 +1,2 @@
 speed_monitor:
   _target_: src.callbacks.speed_monitor.SpeedMonitor
-  intra_step_time: true
-  inter_step_time: true

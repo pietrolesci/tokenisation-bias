@@ -1,80 +1,84 @@
-# Adapted from https://pytorch-lightning.readthedocs.io/en/latest/_modules/pytorch_lightning/callbacks/gpu_stats_monitor.html#GPUStatsMonitor
-# We only need the speed monitoring, not the GPU monitoring
 import time
-from typing import Any
 
-from lightning.pytorch import Callback, LightningModule, Trainer
+from lightning import Trainer
+from lightning.pytorch import Callback, LightningModule
 from lightning.pytorch.utilities import rank_zero_only
-from lightning.pytorch.utilities.parsing import AttributeDict
-from lightning.pytorch.utilities.types import STEP_OUTPUT
+
+from src.module import RunningStage
 
 
 class SpeedMonitor(Callback):
-    """Monitor the speed of each step and each epoch."""
+    PREFIX = "time"
 
-    def __init__(
-        self, intra_step_time: bool = True, inter_step_time: bool = True, epoch_time: bool = True, verbose=False
-    ) -> None:
-        super().__init__()
-        self._log_stats = AttributeDict(
-            {"intra_step_time": intra_step_time, "inter_step_time": inter_step_time, "epoch_time": epoch_time}
-        )
-        self.verbose = verbose
+    def epoch_start(self, stage: str | RunningStage) -> None:
+        setattr(self, f"{stage}_epoch_start_time", time.time())
 
-    def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self._snap_epoch_time = None
+    def epoch_end(self, trainer: Trainer, stage: str | RunningStage) -> None:
+        setattr(self, f"{stage}_epoch_end_time", time.time())
+        runtime = getattr(self, f"{stage}_epoch_end_time") - getattr(self, f"{stage}_epoch_start_time")
+        for pl_logger in trainer.loggers:
+            pl_logger.log_metrics({f"{self.PREFIX}/{stage}_epoch (min)": runtime / 60}, step=trainer.global_step)
 
-    def on_train_epoch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self._snap_intra_step_time = None
-        self._snap_inter_step_time = None
-        self._snap_epoch_time = time.time()
+    def batch_start(self, stage: str | RunningStage) -> None:
+        setattr(self, f"{stage}_batch_start_time", time.perf_counter())
 
-    def on_validation_epoch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self._snap_inter_step_time = None
+    def batch_end(self, trainer: Trainer, stage: str | RunningStage) -> None:
+        setattr(self, f"{stage}_batch_end_time", time.perf_counter())
+        runtime = getattr(self, f"{stage}_batch_end_time") - getattr(self, f"{stage}_batch_start_time")
+        for pl_logger in trainer.loggers:
+            pl_logger.log_metrics({f"{self.PREFIX}/{stage}_batch (ms)": runtime * 1000}, step=trainer.global_step)
 
-    def on_test_epoch_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self._snap_inter_step_time = None
+    def on_fit_start(self, *args, **kwargs) -> None:
+        self.fit_start = time.time()
 
-    @rank_zero_only
-    def on_train_batch_start(self, trainer: Trainer, pl_module: LightningModule, batch: Any, batch_idx: int) -> None:
-        if self._log_stats.intra_step_time:
-            self._snap_intra_step_time = time.time()
+    def on_fit_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        self.fit_end = time.time()
+        runtime = self.fit_end - self.fit_start
+        for pl_logger in trainer.loggers:
+            pl_logger.log_metrics({f"{self.PREFIX}/fit_time (min)": runtime / 60}, step=trainer.global_step)
 
-        if not trainer._logger_connector.should_update_logs:
-            return
+    """
+    Epoch start
+    """
 
-        logs = {}
-        if self._log_stats.inter_step_time and self._snap_inter_step_time:
-            # First log at beginning of second step
-            logs["time/inter_step (ms)"] = (time.time() - self._snap_inter_step_time) * 1000
+    def on_train_epoch_start(self, *args, **kwargs) -> None:
+        self.epoch_start(RunningStage.TRAIN)
 
-        if trainer.logger is not None:
-            trainer.logger.log_metrics(logs, step=trainer.global_step)
+    def on_validation_epoch_start(self, *args, **kwargs) -> None:
+        self.epoch_start(RunningStage.VALIDATION)
 
-    @rank_zero_only
-    def on_train_batch_end(
-        self, trainer: Trainer, pl_module: LightningModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
-    ) -> None:
-        if self._log_stats.inter_step_time:
-            self._snap_inter_step_time = time.time()
-
-        if self.verbose and self._log_stats.intra_step_time and self._snap_intra_step_time:
-            pl_module.print(f"time/intra_step (ms): {(time.time() - self._snap_intra_step_time) * 1000}")
-
-        if not trainer._logger_connector.should_update_logs:
-            return
-
-        logs = {}
-        if self._log_stats.intra_step_time and self._snap_intra_step_time:
-            logs["time/intra_step (ms)"] = (time.time() - self._snap_intra_step_time) * 1000
-
-        if trainer.logger is not None:
-            trainer.logger.log_metrics(logs, step=trainer.global_step)
+    """
+    Epoch end
+    """
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        logs = {}
-        if self._log_stats.epoch_time and self._snap_epoch_time:
-            logs["time/epoch (s)"] = time.time() - self._snap_epoch_time
-        if trainer.logger is not None:
-            trainer.logger.log_metrics(logs, step=trainer.global_step)
+        self.epoch_end(trainer, RunningStage.TRAIN)
+
+    @rank_zero_only
+    def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        self.epoch_end(trainer, RunningStage.VALIDATION)
+
+    """
+    Batch start
+    """
+
+    @rank_zero_only
+    def on_train_batch_start(self, *args, **kwargs) -> None:
+        self.batch_start(RunningStage.TRAIN)
+
+    @rank_zero_only
+    def on_validation_batch_start(self, *args, **kwargs) -> None:
+        self.batch_start(RunningStage.VALIDATION)
+
+    """
+    Batch end
+    """
+
+    @rank_zero_only
+    def on_train_batch_end(self, trainer: Trainer, pl_module: LightningModule, *args, **kwargs) -> None:
+        self.batch_end(trainer, RunningStage.TRAIN)
+
+    @rank_zero_only
+    def on_validation_batch_end(self, trainer: Trainer, pl_module: LightningModule, *args, **kwargs) -> None:
+        self.batch_end(trainer, RunningStage.VALIDATION)

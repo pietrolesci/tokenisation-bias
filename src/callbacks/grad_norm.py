@@ -8,6 +8,8 @@ from src.loggers import TensorBoardLogger
 
 
 class GradNorm(Callback):
+    PREFIX = "optim"
+
     def __init__(
         self,
         norm_type: float | int | str,
@@ -52,7 +54,8 @@ class GradNorm(Callback):
         )  # type: ignore
         if self.only_total:
             norms = {f"grad_{self.norm_type}_norm_total": norms[f"grad_{self.norm_type}_norm_total"]}
-        pl_module.log_dict({f"opt/{k}": v for k, v in norms.items()})
+        for pl_logger in trainer.loggers:
+            pl_logger.log_metrics({f"{self.PREFIX}/{k}": v.item() for k, v in norms.items()}, step=trainer.global_step)
 
         if (
             self.tb_logger is not None
@@ -78,4 +81,7 @@ class GradNorm(Callback):
     def on_before_zero_grad(self, trainer: Trainer, pl_module: LightningModule, optimizer: Optimizer) -> None:
         if self.check_clipping:
             norms = grad_norm(pl_module.model, norm_type=self.norm_type, group_separator=self.group_separator)
-            pl_module.log_dict({f"opt/{k}_after_clipping": v for k, v in norms.items()})
+            for pl_logger in trainer.loggers:
+                pl_logger.log_metrics(
+                    {f"{self.PREFIX}/{k}_after_clipping": v for k, v in norms.items()}, step=trainer.global_step
+                )
