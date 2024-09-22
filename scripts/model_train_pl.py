@@ -56,7 +56,7 @@ def main(cfg: DictConfig) -> None:
     # Maybe compile
     if cfg.torch_compile:
         model = torch.compile(model)
-    
+
     # Load module
     optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
     module = LanguageModel(model, optim_config)  # type: ignore

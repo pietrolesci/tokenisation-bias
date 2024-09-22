@@ -15,7 +15,6 @@ defaults:
   - _self_
 
 
-
 hydra:
   # adds colorlog to logging
   job_logging:
@@ -39,7 +38,7 @@ hydra:
     subdir: ${run_folder}_${hydra.job.id}
 
 
-# training
+run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 tok_name: bpe32000
 tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
 
@@ -48,10 +47,11 @@ val_data_path: /home/pl487/rdd/data/slim-pajama-eval-${tok_name}/validation_data
 
 model: pythia-14m
 resume_from_checkpoint: null
+save_initial_checkpoint: false
 
-run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 seed: 42
 torch_compile: false
+
 
 data:
   batch_size: 32
@@ -66,12 +66,12 @@ data:
 
 optim:
   optim_name: adamw
-  lr: 6e-4
+  lr: 1e-3
   weight_decay: 0.1
   optim_kwargs:
     fused: true
     eps: 1e-8
-    betas: [0.9, 0.999]
+    betas: [0.9, 0.95]
   scheduler_name: cosine
   num_warmup_steps: 2000
   # scheduler_kwargs:
