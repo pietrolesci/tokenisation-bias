@@ -54,11 +54,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     tok_path = Path(args.raw_tok_path)
-    tok_type = tok_path.name.split("_")[0]  # should be bpe
+    names = tok_path.name.split("_")
+
+    tok_type = names[0]  # should be bpe
+    dataset = names[1] if len(names) > 2 else ""
+
     logger.info(f"Creating tokenizer at {DEFAULT_DIR}")
 
     for vocab_size in VOCAB_SIZES:
-        out_path = Path(DEFAULT_DIR) / f"{tok_type}{vocab_size}"
+        out_path = Path(DEFAULT_DIR) / f"{tok_type}{vocab_size}{dataset}"
         logger.info(f"Saving with vocab {vocab_size=} at {out_path=}")
         tok = load_tokenizer_with_vocab_size(tok_path, vocab_size=vocab_size)
         tok.save_pretrained(str(out_path))

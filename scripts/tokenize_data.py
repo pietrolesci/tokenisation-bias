@@ -28,9 +28,10 @@ PATHS = {
     "fineweb-edu-10BT": (
         "hf://datasets/HuggingFaceFW/fineweb-edu/sample/10BT",
         f"hf://datasets/{USERNAME}/fineweb-edu-10BT",
+        None,
     ),
-    "slim-pajama-eval": ("data/slim-pajama-eval.parquet", "slim-pajama-eval"),
-    "minipile": ("hf://datasets/JeanKaddour/minipile", f"hf://datasets/{USERNAME}/minipile"),
+    "slim-pajama-eval": ("data/slim-pajama-eval.parquet", "slim-pajama-eval", None),
+    "minipile": ("hf://datasets/JeanKaddour/minipile/data", f"hf://datasets/{USERNAME}/minipile", "train*"),
 }
 
 
@@ -48,7 +49,12 @@ def check_repo(repo_id: str) -> None:
 
 
 def process_with_datatrove(
-    source_repo: str, target_repo: str, tokenizer_name_or_path: str, eos_token: str, tok_name: str
+    source_repo: str,
+    target_repo: str,
+    tokenizer_name_or_path: str,
+    eos_token: str,
+    tok_name: str,
+    glob_pattern: str | None,
 ) -> None:
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     hub_folder = f"{target_repo}/{tok_name}"
@@ -64,6 +70,7 @@ def process_with_datatrove(
                 text_key="text",
                 id_key="id",
                 limit=LIMIT,
+                glob_pattern=glob_pattern,
             ),
             DocumentTokenizer(
                 output_folder=".datatrove/scratch/tokenized/",
@@ -126,7 +133,7 @@ def process_with_datasets(source_repo: str, target_repo: str, tok: PreTrainedTok
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--tok_path", type=str)
-    parser.add_argument("--dataset", type=str, default="fineweb-edu-10BT")
+    parser.add_argument("--dataset", type=str, default="minipile")
     args = parser.parse_args()
 
     # Load tokenizer and adapt its vocabulary
@@ -135,7 +142,7 @@ if __name__ == "__main__":
     logger.info(f"tok: {tok.vocab_size}, {max(tok.get_vocab().values())}")
 
     # Prepare reading from HF Hub
-    source_repo, target_repo = PATHS[args.dataset]
+    source_repo, target_repo, glob_pattern = PATHS[args.dataset]
     should_use_datatrove = source_repo.startswith("hf://dataset")
 
     logger.info(f"Tokenizing corpus with tokenizer at {args.tok_path} and {tok.vocab_size=}")
@@ -150,6 +157,7 @@ if __name__ == "__main__":
             tokenizer_name_or_path=str(tok_path),
             eos_token=tok.eos_token,
             tok_name=tok_path.name,
+            glob_pattern=glob_pattern,
         )
     else:
         # Here we do not need the eos since it is validation
