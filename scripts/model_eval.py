@@ -6,7 +6,6 @@ from pathlib import Path
 
 import hydra
 import numpy as np
-import polars as pl
 import srsly
 import torch
 from datasets import load_from_disk
@@ -17,6 +16,8 @@ from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM
 from transformers.utils.logging import set_verbosity_warning
 
+from src.utilities import jsonl2parquet, ld_to_dl, remove_file
+
 SEP_LINE = f"{'=' * 80}"
 MODEL_CACHE_DIR = ".model_cache"
 
@@ -26,32 +27,6 @@ set_verbosity_warning()
 
 OmegaConf.register_new_resolver("get_folder_name", lambda x: Path(x).name)
 OmegaConf.register_new_resolver("get_tok_name", lambda x: Path(x).name.split("-")[-1])
-
-
-def flatten(x: list[list]) -> list:
-    return [i for j in x for i in j]
-
-
-def remove_file(path: str | Path) -> None:
-    path = Path(path)
-    path.unlink(missing_ok=True)
-
-
-def jsonl2parquet(filepath: str | Path, out_dir: str | Path) -> None:
-    filepath = Path(filepath)
-    assert filepath.name.endswith(".jsonl"), "Not a jsonl file"
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    fl = srsly.read_jsonl(filepath)
-    df = pl.DataFrame({k: flatten(v) for k, v in ld_to_dl(line).items()} for line in fl)  # type: ignore
-    df = df.explode(df.columns)
-
-    df.write_parquet(out_dir / f"{filepath.name.removesuffix('.jsonl')}.parquet")
-
-
-def ld_to_dl(ld: list[dict]) -> dict[str, list]:
-    return {k: [dic[k] for dic in ld] for k in ld[0]}
 
 
 def get_collator_fn(prefix_map: dict) -> Callable:

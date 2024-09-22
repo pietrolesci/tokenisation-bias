@@ -38,6 +38,7 @@ def main(cfg: DictConfig) -> None:
     training_args = TrainingArguments(
         torch_compile=cfg.torch_compile,
         per_device_train_batch_size=cfg.batch_size,
+        per_device_eval_batch_size=cfg.eval_batch_size,
         gradient_accumulation_steps=cfg.gradient_accumulation_steps,
         learning_rate=cfg.lr,
         weight_decay=cfg.weight_decay,
@@ -50,7 +51,13 @@ def main(cfg: DictConfig) -> None:
 
     set_seed(training_args.seed)
     trainer = LMTrainer(
-        model, args=training_args, tokenizer=tok, config=config, data_path=f"{cfg.dataset_repo}/{tok_path.name}"
+        model,
+        args=training_args,
+        tokenizer=tok,
+        config=config,
+        train_data_path=cfg.train_data_path,
+        eval_data_path=cfg.eval_data_path,
+        optimizer=cfg.optimizer,
     )
     trainer.train(resume_from_checkpoint=cfg.resume_from_checkpoint)
 

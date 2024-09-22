@@ -1,0 +1,5 @@
+tensorboard:
+  _target_: src.loggers.TensorBoardLogger
+  save_dir: ./
+  name: ''
+  version: ./

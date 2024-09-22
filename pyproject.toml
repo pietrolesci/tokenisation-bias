@@ -32,6 +32,7 @@ dependencies = [
     "causalpy>=0.4.0",
     "statsmodels>=0.14.2",
     "polars-u64-idx>=1.7.0",
+    "tbparse>=0.0.9",
 ]
 
 [build-system]

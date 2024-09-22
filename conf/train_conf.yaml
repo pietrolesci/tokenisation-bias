@@ -37,9 +37,10 @@ hydra:
 tok_name: bpe32000
 tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
 
-dataset_repo: hf://datasets/pietrolesci/fineweb-edu-10BT
+train_data_path: /home/pl487/rdd/data/fineweb-edu-10BT/${tok_name}
+eval_data_path: /home/pl487/rdd/data/slim-pajama-eval-${tok_name}/validation_dataset
 
-model: pythia
+model: smollm-135m
 resume_from_checkpoint: null
 
 run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
@@ -47,14 +48,16 @@ run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 
 # optimisation
 batch_size: 32
-gradient_accumulation_steps: 2
-lr: 1e-3
+eval_batch_size: ${batch_size}
+gradient_accumulation_steps: 4
+lr: 6e-4
 lr_scheduler: wsd
 weight_decay: 0.1
 warmup_steps: 2_000
-max_steps: 50_000
+max_steps: 300_000
 num_train_epochs: 1
 torch_compile: true
+optimizer: adamw
 # NOTE: the other TrainingArguments are hard-coded at src/trainer.py/DEFAULT_TRAINING_ARGS
 
 

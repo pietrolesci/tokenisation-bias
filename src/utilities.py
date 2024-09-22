@@ -1,13 +1,34 @@
 # import json
+import copy
 import logging
-from typing import Literal
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal
 
 import colorlog
+import polars as pl
+import srsly
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
-# import srsly
-# from transformers import PreTrainedTokenizerFast  # type: ignore
 
-# from tokenizers import Tokenizer
+@dataclass
+class DictConfig:
+    """Dataclass which is subscriptable like a dict"""
+
+    def to_dict(self) -> dict[str, Any]:
+        out = copy.deepcopy(self.__dict__)
+        return out
+
+    def __getitem__(self, k: str) -> Any:
+        return self.__dict__[k]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.__dict__)
+
+    def __len__(self) -> int:
+        return len(self.__dict__)
 
 
 def get_logger(name: str, level: Literal["error", "warning", "info", "debug"] = "info") -> logging.Logger:
@@ -24,7 +45,44 @@ def get_logger(name: str, level: Literal["error", "warning", "info", "debug"] = 
         )
     )
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
+
+
+def flatten(x: list[list]) -> list:
+    return [i for j in x for i in j]
+
+
+def remove_file(path: str | Path) -> None:
+    path = Path(path)
+    path.unlink(missing_ok=True)
+
+
+def jsonl2parquet(filepath: str | Path, out_dir: str | Path) -> None:
+    filepath = Path(filepath)
+    assert filepath.name.endswith(".jsonl"), "Not a jsonl file"
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    fl = srsly.read_jsonl(filepath)
+    df = pl.DataFrame({k: flatten(v) for k, v in ld_to_dl(line).items()} for line in fl)  # type: ignore
+    df = df.explode(df.columns)
+
+    df.write_parquet(out_dir / f"{filepath.name.removesuffix('.jsonl')}.parquet")
+
+
+def ld_to_dl(ld: list[dict]) -> dict[str, list]:
+    return {k: [dic[k] for dic in ld] for k in ld[0]}
+
+
+def conf_to_dict(x: DictConfig | None) -> dict:
+    if x is not None:
+        return OmegaConf.to_container(x)  # type: ignore
+    return {}
+
+
+def instantiate_from_conf(list_cfg: list[DictConfig]) -> list:
+    return [list(instantiate(cfg).values()) if cfg is not None else None for cfg in list_cfg]
 
 
 # def load_tokenizer_with_vocab_size(path: str | Path, vocab_size: int) -> PreTrainedTokenizerFast:

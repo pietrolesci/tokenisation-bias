@@ -1,0 +1,12 @@
+model_checkpoint:
+  _target_: src.callbacks.ModelCheckpoint
+  dirpath: .checkpoints
+  filename: 'step{step}'
+  enable_version_counter: false
+  every_n_epochs: null
+  save_top_k: -1
+  save_last: link
+  
+
+
+
