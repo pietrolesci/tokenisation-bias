@@ -41,9 +41,10 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"Num parameters: {model.num_parameters() / 1e6:.1f}M")
 
     # Save initial checkpoints. NOTE: manually making naming nomenclature equal to the Trainer default
-    # if cfg.resume_from_checkpoint is None:
-    #     model.save_pretrained("./checkpoints/checkpoint-0")
+    if cfg.save_initial_checkpoint and cfg.resume_from_checkpoint is None:
+        model.save_pretrained("./checkpoints/step0")
 
+    # Load datamodule
     dataloader_config = DataloaderConfig(**conf_to_dict(cfg.data))  # type: ignore
     datamodule = DataModule(
         train_data_path=cfg.train_data_path,
@@ -51,17 +52,22 @@ def main(cfg: DictConfig) -> None:
         max_position_embeddings=model.config.max_position_embeddings,
         dataloader_config=dataloader_config,
     )
-    optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
 
+    # Maybe compile
     if cfg.torch_compile:
         model = torch.compile(model)
+    
+    # Load module
+    optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
     module = LanguageModel(model, optim_config)  # type: ignore
-    loggers, callbacks = instantiate_from_conf([cfg.get(i) for i in ("loggers", "callbacks")])
 
+    # Load trainer
+    loggers, callbacks = instantiate_from_conf([cfg.get(i) for i in ("loggers", "callbacks")])
+    trainer = Trainer(**conf_to_dict(cfg.trainer), logger=loggers, callbacks=callbacks)
+
+    # Train
     seed_everything(cfg.seed)
     torch.set_float32_matmul_precision("high")
-
-    trainer = Trainer(**conf_to_dict(cfg.trainer), logger=loggers, callbacks=callbacks)
     trainer.fit(model=module, datamodule=datamodule, ckpt_path=cfg.resume_from_checkpoint)
     logger.info(f"Training total time: {(time.perf_counter() - start_time) / 60:.1f} minutes")
 

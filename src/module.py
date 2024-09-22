@@ -93,9 +93,12 @@ class LanguageModel(LightningModule):
         logger.info(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
         logger.info(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
 
+        # Create optimizer
         optimizer = TYPE_TO_OPTIMIZER_CLASS[self.optim_config.optim_name](
             optim_groups, lr=self.optim_config.lr, **self.optim_config.optim_kwargs
         )
+
+        # Maybe create scheduler
         if self.optim_config.scheduler_name is not None:
             scheduler = get_scheduler(
                 name=self.optim_config.scheduler_name,
