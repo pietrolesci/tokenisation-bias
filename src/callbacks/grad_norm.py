@@ -13,8 +13,9 @@ class GradNorm(Callback):
         norm_type: float | int | str,
         group_separator: str = "/",
         histogram_freq: int | None = None,
-        log_weight_distribution: bool | None = None,
+        log_weight_distribution: bool = False,
         check_clipping: bool = False,
+        only_total: bool = False,
     ) -> None:
         """Compute each parameter's gradient's norm and their overall norm before clipping is applied.
 
@@ -36,6 +37,7 @@ class GradNorm(Callback):
         self.histogram_freq = histogram_freq
         self.log_weight_distribution = log_weight_distribution
         self.check_clipping = check_clipping
+        self.only_total = only_total
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         # check if tensorboard is available
@@ -48,6 +50,8 @@ class GradNorm(Callback):
         norms: dict[str, Tensor] = grad_norm(
             pl_module.model, norm_type=self.norm_type, group_separator=self.group_separator
         )  # type: ignore
+        if self.only_total:
+            norms = {f"grad_{self.norm_type}_norm_total": norms[f"grad_{self.norm_type}_norm_total"]}
         pl_module.log_dict({f"opt/{k}": v for k, v in norms.items()})
 
         if (

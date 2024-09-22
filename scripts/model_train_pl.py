@@ -52,7 +52,10 @@ def main(cfg: DictConfig) -> None:
         dataloader_config=dataloader_config,
     )
     optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
-    module = LanguageModel(model, optim_config)
+    
+    if cfg.torch_compile:
+        model = torch.compile(model)
+    module = LanguageModel(model, optim_config)  # type: ignore
     loggers, callbacks = instantiate_from_conf([cfg.get(i) for i in ("loggers", "callbacks")])
 
     seed_everything(cfg.seed)

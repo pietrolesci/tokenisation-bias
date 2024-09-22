@@ -3,8 +3,12 @@ from typing import Any
 from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.callbacks.callback import Callback
 from lightning.pytorch.utilities.model_helpers import is_overridden
-from lightning.pytorch.utilities.rank_zero import rank_zero_info, rank_zero_warn  # type: ignore
+from lightning.pytorch.utilities.rank_zero import rank_zero_warn  # type: ignore
 from typing_extensions import override
+
+from src.utilities import get_logger
+
+logger = get_logger("grad_accum")
 
 
 class GradientAccumulationScheduler(Callback):
@@ -71,7 +75,9 @@ class GradientAccumulationScheduler(Callback):
         prev = trainer.accumulate_grad_batches
         trainer.accumulate_grad_batches = self.get_accumulate_grad_batches(trainer.global_step)
         if trainer.accumulate_grad_batches != prev:
-            rank_zero_info(
+            logger.info(
                 f"Number of accumulation batches changed from {prev} to {trainer.accumulate_grad_batches} "
                 f"at step {trainer.global_step}"
             )
+
+    # TODO: log number of elements in batch
