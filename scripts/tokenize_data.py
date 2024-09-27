@@ -32,6 +32,7 @@ PATHS = {
     ),
     "slim-pajama-eval": ("data/slim-pajama-eval.parquet", "slim-pajama-eval", None),
     "minipile": ("hf://datasets/JeanKaddour/minipile/data", f"hf://datasets/{USERNAME}/minipile", "train*"),
+    "minipile-eval": ("data/minipile-eval.parquet", "data/minipile-eval", None),
 }
 
 
@@ -117,16 +118,19 @@ def process_with_datatrove(
 def process_with_datasets(source_repo: str, target_repo: str, tok: PreTrainedTokenizerFast, tok_name: str) -> None:
     # ds = load_from_disk(source_repo)
     ds: Dataset = Dataset.from_parquet(source_repo)  # type: ignore
+    names = [i for i in ds.column_names if i != "uid"]
     ds = ds.map(
         lambda ex: tok(ex["text"], return_attention_mask=False, return_token_type_ids=False),
         batched=True,
         num_proc=os.cpu_count() - 1,  # type: ignore
         load_from_cache_file=False,
         desc="Tokenising",
-        remove_columns=["text", "meta"],
+        remove_columns=names,
     )
     logger.info(f"Pushing to HF at {target_repo} at config {tok_name}")
-    ds.push_to_hub(target_repo, config_name=tok_name)
+    # ds.push_to_hub(target_repo, config_name=tok_name)
+    # ds.save_to_disk(f"{target_repo}/{tok_name}")
+    ds.to_polars().write_parquet(f"{target_repo}-{tok_name}.parquet")  # type: ignore
 
 
 # Start

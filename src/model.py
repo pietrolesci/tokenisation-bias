@@ -1,12 +1,14 @@
 from lightning import seed_everything
 from transformers import PreTrainedTokenizerFast
 from transformers.configuration_utils import PretrainedConfig
+from transformers.models.gpt2.configuration_gpt2 import GPT2Config
+from transformers.models.gpt2.modeling_gpt2 import GPT2LMHeadModel
 from transformers.models.gpt_neox.configuration_gpt_neox import GPTNeoXConfig
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXForCausalLM
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
 
-MODEL_TYPE = LlamaForCausalLM | GPTNeoXForCausalLM
+MODEL_TYPE = LlamaForCausalLM | GPTNeoXForCausalLM | GPT2LMHeadModel
 
 
 def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, PretrainedConfig]:
@@ -20,17 +22,17 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
         # _attn_implementation="flash_attention_2",
     }
     seed_everything(42)
-    if name == "smollm":
-        # adapted from SmolLM https://huggingface.co/HuggingFaceTB/SmolLM-135M/blob/main/config.json
+    if name == "hermes":
+        # adapted from https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B/blob/main/config.json
         config = LlamaConfig(
             model_type="llama",
             hidden_act="silu",
-            hidden_size=512,
-            intermediate_size=1024,
-            num_attention_heads=9,
-            num_key_value_heads=3,
+            hidden_size=1024,
+            intermediate_size=2 * 1024,
+            num_attention_heads=8,
+            num_key_value_heads=4,
             num_hidden_layers=8,
-            tie_word_embeddings=True,
+            tie_word_embeddings=False,
             initializer_range=0.02,
             attention_bias=False,
             attention_dropout=0.0,
@@ -38,7 +40,14 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
             pretraining_tp=1,
             rms_norm_eps=1e-05,
             rope_scaling=None,
-            rope_theta=10000.0,
+            # rope_scaling={
+            #     "factor": 8.0,
+            #     "high_freq_factor": 4.0,
+            #     "low_freq_factor": 1.0,
+            #     "original_max_position_embeddings": 2048,
+            #     "rope_type": "llama3",
+            # },
+            # rope_theta=500000.0,
             **kwargs,
         )
         model = LlamaForCausalLM(config)
@@ -105,6 +114,10 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
             **kwargs,
         )
         model = GPTNeoXForCausalLM(config)
+
+    elif name == "gpt2":
+        config = GPT2Config.from_pretrained("gpt2")
+        model = GPT2LMHeadModel._from_config(config)
 
     else:
         raise ValueError

@@ -39,18 +39,18 @@ hydra:
 
 
 run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
-tok_name: bpe32000
+tok_name: bpe32000minipile
 tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
 
-train_data_path: /home/pl487/rdd/data/fineweb-edu-10BT/${tok_name}
-val_data_path: /home/pl487/rdd/data/slim-pajama-eval-${tok_name}/validation_dataset
+train_data_path: /home/pl487/rdd/data/minipile/${tok_name}
+val_data_path: /home/pl487/rdd/data/minipile-eval-${tok_name}/eval_samples
 
-model: pythia-14m
+model: gpt2
 resume_from_checkpoint: null
 save_initial_checkpoint: false
 
 seed: 42
-torch_compile: false
+torch_compile: true
 
 
 data:
@@ -66,15 +66,16 @@ data:
 
 optim:
   optim_name: adamw
-  lr: 1e-3
+  lr: 6e-4
   weight_decay: 0.1
   optim_kwargs:
     fused: true
     eps: 1e-8
     betas: [0.9, 0.95]
-  scheduler_name: cosine
+  scheduler_name: cosine_with_min_lr
   num_warmup_steps: 2000
-  # scheduler_kwargs:
+  scheduler_kwargs:
+    min_lr_rate: 0.1
   #   num_stable_steps: 46000
   #   num_decay_steps: 2000
   #   min_lr_ratio: 0
@@ -89,7 +90,7 @@ trainer:
   fast_dev_run: false
   gradient_clip_val: 1.0
   gradient_clip_algorithm: norm
-  val_check_interval: 2
-  max_steps: 10
-  limit_val_batches: 2
-  limit_train_batches: 10
+  val_check_interval: 2000
+  max_steps: 100_000
+  limit_val_batches: 500
+  # limit_train_batches: 10
