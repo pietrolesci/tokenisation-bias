@@ -9,6 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
 from src.datamodule import DataloaderConfig, DataModule
+from src.loggers import TensorBoardLogger
 from src.model import get_model
 from src.module import LanguageModel, OptimCofig
 from src.utilities import conf_to_dict, instantiate_from_conf
@@ -34,7 +35,7 @@ def main(cfg: DictConfig) -> None:
     tok.pad_token_id = 0
 
     # Load model
-    model, _ = get_model(cfg.model, tok)
+    model, config = get_model(cfg.model, tok)
     logger.info(f"Model config:\n{model.config.to_json_string()}")
     logger.info(f"Attention implementation: {model.config._attn_implementation}")
     logger.info(f"Memory footprint: {model.get_memory_footprint() / 1e6:.2f} MB")
@@ -59,7 +60,7 @@ def main(cfg: DictConfig) -> None:
 
     # Load module
     optim_config = OptimCofig(**conf_to_dict(cfg.optim))  # type: ignore
-    module = LanguageModel(model, optim_config)  # type: ignore
+    module = LanguageModel(model, config, optim_config)  # type: ignore
 
     # Load trainer
     loggers, callbacks = instantiate_from_conf([cfg.get(i) for i in ("loggers", "callbacks")])
@@ -77,6 +78,9 @@ def main(cfg: DictConfig) -> None:
     # cur_dir = Path.cwd()
     # new_dir = cur_dir.with_name("cur_dir")
     # cur_dir.rename(new_dir)
+    for log in trainer.loggers:
+        if isinstance(log, TensorBoardLogger):
+            log.save_to_parquet("tb_logs.parquet")
 
 
 if __name__ == "__main__":
