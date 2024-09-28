@@ -2,4 +2,3 @@ grad_accum:
   _target_: src.callbacks.gradient_accumulation.GradientAccumulationScheduler
   scheduling:
     0: 1
-    2000: 2

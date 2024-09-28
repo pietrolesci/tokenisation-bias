@@ -26,7 +26,7 @@ logger = logging.getLogger("hydra")
 set_verbosity_warning()
 
 OmegaConf.register_new_resolver("get_folder_name", lambda x: Path(x).name)
-OmegaConf.register_new_resolver("get_tok_name", lambda x: Path(x).name.split("-")[-1])
+# OmegaConf.register_new_resolver("get_tok_name", lambda x: Path(x).name.split("_")[-1])
 
 
 def get_collator_fn(prefix_map: dict) -> Callable:

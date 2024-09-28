@@ -6,6 +6,7 @@ from torch import Tensor
 from torch.nn.functional import cross_entropy
 from torch.optim.adamw import AdamW
 from torch.optim.optimizer import Optimizer
+from transformers import PretrainedConfig
 from transformers.optimization import TYPE_TO_SCHEDULER_FUNCTION, get_scheduler
 
 from src.model import MODEL_TYPE
@@ -41,11 +42,12 @@ class OptimCofig(DictConfig):
 
 
 class LanguageModel(LightningModule):
-    def __init__(self, model: MODEL_TYPE, optim_config: OptimCofig) -> None:
+    def __init__(self, model: MODEL_TYPE, config: PretrainedConfig, optim_config: OptimCofig) -> None:
         super().__init__()
         self.model = model
+        self.config = config  # save it here so that we can find it in the checkpoints!
         self.optim_config = optim_config
-        self.save_hyperparameters(ignore=["model", "model_config"])
+        self.save_hyperparameters(ignore=["model"])
 
     def forward(self, input_ids: Tensor) -> Tensor:
         return self.model.forward(input_ids=input_ids).logits  # type: ignore

@@ -52,6 +52,29 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
         )
         model = LlamaForCausalLM(config)
 
+    elif name == "smol_llama-101m-gqa":
+        # https://huggingface.co/BEE-spoke-data/smol_llama-101M-GQA/blob/main/config.json
+        config = LlamaConfig(
+            model_type="llama",
+            hidden_act="silu",
+            hidden_size=768,
+            intermediate_size=3072,
+            num_attention_heads=24,
+            num_key_value_heads=8,
+            num_hidden_layers=6,
+            tie_word_embeddings=False,
+            initializer_range=0.02,
+            attention_bias=False,
+            attention_dropout=0.0,
+            mlp_bias=False,
+            pretraining_tp=1,
+            rms_norm_eps=1e-05,
+            rope_scaling=None,
+            rope_theta=10000.0,
+            **kwargs,
+        )
+        model = LlamaForCausalLM(config)
+
     elif name == "smollm-135m":
         # adapted from SmolLM https://huggingface.co/HuggingFaceTB/SmolLM-135M/blob/main/config.json
         config = LlamaConfig(
