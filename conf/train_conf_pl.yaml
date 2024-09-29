@@ -47,7 +47,7 @@ val_data_path: /home/pl487/rdd/data/minipile-eval-${tok_name}/eval_samples
 
 model: gpt2
 resume_from_checkpoint: null
-save_initial_checkpoint: false
+save_initial_checkpoint: true
 
 seed: 42
 torch_compile: true

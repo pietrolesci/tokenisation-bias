@@ -13,7 +13,7 @@ from lightning.fabric import Fabric, seed_everything
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, PreTrainedModel
 from transformers.utils.logging import set_verbosity_warning
 
 from src.utilities import jsonl2parquet, ld_to_dl, remove_file
@@ -63,10 +63,30 @@ def get_collator_fn(prefix_map: dict) -> Callable:
     return collator_fn
 
 
-def load_prefix_map(path: str | Path) -> dict[int, list[int]]:
+def load_prefix_map(tok_path: str | Path) -> dict[int, list[int]]:
+    tok_path = Path(tok_path)
+    path = tok_path / f"prefix_map_{tok_path.name}.jsonl"
+    logger.info(f"Reading prefix_map from {path=}")
+
     prefix_map: dict[int, list[int]] = {d["prefix"]: d["new_token_id"] for d in srsly.read_jsonl(path)}  # type: ignore
     logger.info(f"Check that prefix map is only available for in-vocab tokens. Last tok is: {max(prefix_map.keys())}")
     return prefix_map
+
+def load_hf_from_pl(checkpoint_path: str | Path) -> PreTrainedModel:
+    logger.info(f"Reading checkpoint from {checkpoint_path=}")
+    checkpoint = torch.load(str(checkpoint_path), weights_only=False)
+    state_dict =  {
+        k.removeprefix("model.").removeprefix("_orig_mod."): v 
+        for k, v in checkpoint["state_dict"].items() if k.startswith("model.")
+    }
+    config = checkpoint["hyper_parameters"].get("config")
+    
+    # HACK: temporary -- since first run for gpt2 was without this info
+    logger.info(f"Model {config=}")
+
+    model = AutoModelForCausalLM.from_config(config)
+    model.load_state_dict(state_dict)
+    return model
 
 
 def compute_statistics(model: torch.nn.Module, batch: dict) -> dict:
@@ -136,13 +156,16 @@ def main(cfg: DictConfig) -> None:
     # ===========================
     # Step 2. Load model and data
     # ===========================
-    model_path = Path(cfg.model_path)
-    model = AutoModelForCausalLM.from_pretrained(str(model_path / "checkpoints" / cfg.checkpoint))
+    run_path = Path(cfg.run_path)
+    
+    tok_path = Path(srsly.read_yaml(run_path / "hparams.yaml")["tok_path"])  # type: ignore
+    prefix_map = load_prefix_map(tok_path)
 
-    data_path = Path(cfg.data_path)
-    dataset = load_from_disk(data_path / "eval_samples")
-
-    prefix_map = load_prefix_map(cfg.prefix_map_path)
+    model = load_hf_from_pl(run_path / ".checkpoints" / f"{cfg.checkpoint}.ckpt")
+    
+    data_path = Path(f"{cfg.data_path}-{tok_path.name}") / "eval_samples"
+    logger.info(f"Loading data from {data_path=}")
+    dataset = load_from_disk(data_path)
 
     dataloader = DataLoader(
         dataset,  # type: ignore
@@ -169,7 +192,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.torch_compile:
         model = torch.compile(model)
 
-    FILENAME = f"{model_path.name}_{cfg.checkpoint}"
+    FILENAME = f"eval_{cfg.checkpoint}"
     write_buffer = []
     pbar = tqdm(dataloader, desc="Running Inference")
     for idx, batch in enumerate(pbar):

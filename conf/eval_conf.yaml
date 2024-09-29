@@ -27,23 +27,20 @@ hydra:
 
   # folder structure
   run:
-    dir: ./outputs/model_eval/${run_folder}
+    dir: ./outputs/model_eval/${out_path}
   sweep:
     dir: ./outputs/multirun/model_eval
-    subdir: ${run_folder}_${hydra.job.id}
+    subdir: ${out_path}_${hydra.job.id}
 
 
-run_folder: ${get_folder_name:${model_path}}_${checkpoint}_${now:%Y-%m-%d}T${now:%H-%M-%S}
-
+run_path: '???'
+out_path: ${run_path}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 
 # These are automatically set for you
-tok_name: ${get_tok_name:${model_path}}  # convenience
-data_path: /home/pl487/rdd/data/slim-pajama-eval-${tok_name}
-prefix_map_path: /home/pl487/rdd/outputs/tokenizers/${tok_name}/prefix_map_${tok_name}.jsonl
+data_path: /home/pl487/rdd/data/minipile-eval
 
 # Set here
-model_path: /home/pl487/rdd/outputs/model_train/pythia-9M-bpe32000
-checkpoint: checkpoint-50000
+checkpoint: last
 
 seed: 42
 

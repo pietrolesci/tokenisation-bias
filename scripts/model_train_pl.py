@@ -43,7 +43,7 @@ def main(cfg: DictConfig) -> None:
 
     # Save initial checkpoints. NOTE: manually making naming nomenclature equal to the Trainer default
     if cfg.save_initial_checkpoint and cfg.resume_from_checkpoint is None:
-        model.save_pretrained("./checkpoints/step0")
+        model.save_pretrained("./.checkpoints/step0")
 
     # Load datamodule
     dataloader_config = DataloaderConfig(**conf_to_dict(cfg.data))  # type: ignore

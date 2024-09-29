@@ -74,7 +74,7 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
             **kwargs,
         )
         model = LlamaForCausalLM(config)
-
+  
     elif name == "smollm-135m":
         # adapted from SmolLM https://huggingface.co/HuggingFaceTB/SmolLM-135M/blob/main/config.json
         config = LlamaConfig(
@@ -139,7 +139,26 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
         model = GPTNeoXForCausalLM(config)
 
     elif name == "gpt2":
-        config = GPT2Config.from_pretrained("gpt2")
+        config = GPT2Config(
+            model_type="gpt2",
+            activation_function="gelu_new",
+            n_embd=768,
+            n_ctx=kwargs["max_position_embeddings"],
+            n_positions=kwargs["max_position_embeddings"],
+            n_head=12,
+            n_layer=12,
+            initializer_range=0.02,
+            attn_pdrop=0.1,
+            embd_pdrop=0.1,
+            layer_norm_epsilon=1e-05,
+            resid_pdrop=0.1,
+            summary_activation=None,
+            summary_first_dropout=0.1,
+            summary_proj_to_labels=True,
+            summary_type="cls_index",
+            summary_use_proj=True,
+            **kwargs,
+        )
         model = GPT2LMHeadModel._from_config(config)
 
     else:
