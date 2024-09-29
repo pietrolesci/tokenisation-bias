@@ -74,7 +74,7 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
             **kwargs,
         )
         model = LlamaForCausalLM(config)
-  
+
     elif name == "smollm-135m":
         # adapted from SmolLM https://huggingface.co/HuggingFaceTB/SmolLM-135M/blob/main/config.json
         config = LlamaConfig(

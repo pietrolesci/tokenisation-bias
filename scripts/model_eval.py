@@ -72,15 +72,17 @@ def load_prefix_map(tok_path: str | Path) -> dict[int, list[int]]:
     logger.info(f"Check that prefix map is only available for in-vocab tokens. Last tok is: {max(prefix_map.keys())}")
     return prefix_map
 
+
 def load_hf_from_pl(checkpoint_path: str | Path) -> PreTrainedModel:
     logger.info(f"Reading checkpoint from {checkpoint_path=}")
     checkpoint = torch.load(str(checkpoint_path), weights_only=False)
-    state_dict =  {
-        k.removeprefix("model.").removeprefix("_orig_mod."): v 
-        for k, v in checkpoint["state_dict"].items() if k.startswith("model.")
+    state_dict = {
+        k.removeprefix("model.").removeprefix("_orig_mod."): v
+        for k, v in checkpoint["state_dict"].items()
+        if k.startswith("model.")
     }
     config = checkpoint["hyper_parameters"].get("config")
-    
+
     # HACK: temporary -- since first run for gpt2 was without this info
     logger.info(f"Model {config=}")
 
@@ -157,12 +159,12 @@ def main(cfg: DictConfig) -> None:
     # Step 2. Load model and data
     # ===========================
     run_path = Path(cfg.run_path)
-    
+
     tok_path = Path(srsly.read_yaml(run_path / "hparams.yaml")["tok_path"])  # type: ignore
     prefix_map = load_prefix_map(tok_path)
 
     model = load_hf_from_pl(run_path / ".checkpoints" / f"{cfg.checkpoint}.ckpt")
-    
+
     data_path = Path(f"{cfg.data_path}-{tok_path.name}") / "eval_samples"
     logger.info(f"Loading data from {data_path=}")
     dataset = load_from_disk(data_path)
