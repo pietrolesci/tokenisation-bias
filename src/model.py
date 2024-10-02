@@ -75,7 +75,7 @@ def get_model(name: str, tok: PreTrainedTokenizerFast) -> tuple[MODEL_TYPE, Pret
         )
         model = LlamaForCausalLM(config)
 
-    elif name == "smol_llama-81M-tied":  
+    elif name == "smol_llama-81M-tied":
         config = LlamaConfig(
             model_type="llama",
             hidden_act="silu",
