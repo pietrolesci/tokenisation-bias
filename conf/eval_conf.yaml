@@ -34,7 +34,7 @@ hydra:
 
 
 run_path: '???'
-out_path: ${run_path}_${now:%Y-%m-%d}T${now:%H-%M-%S}
+out_path: ${get_folder_name:${run_path}}_${checkpoint}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 
 # These are automatically set for you
 data_path: /home/pl487/rdd/data/minipile-eval

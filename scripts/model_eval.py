@@ -164,6 +164,7 @@ def main(cfg: DictConfig) -> None:
     prefix_map = load_prefix_map(tok_path)
 
     model = load_hf_from_pl(run_path / ".checkpoints" / f"{cfg.checkpoint}.ckpt")
+    logger.info(f"{cfg.checkpoint=} loaded")
 
     data_path = Path(f"{cfg.data_path}-{tok_path.name}") / "eval_samples"
     logger.info(f"Loading data from {data_path=}")
