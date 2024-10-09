@@ -142,6 +142,28 @@ def compute_statistics(model: torch.nn.Module, batch: dict) -> dict:
     return out
 
 
+def compute_statistics_all_tokens(model: torch.nn.Module, batch: dict) -> dict:
+    """More efficient alternative that manually computes surprisal"""
+
+    # Initialise outputs with metadata
+    out = {"new_token_id": batch["new_token_id"], "uid": batch["uid"]}
+    # HACK
+    # out = {}
+
+    # Forward pass and compute probs
+    input_ids = batch["input_ids"][:, :-1]
+    labels = batch["input_ids"][:, 1:]
+    logits = model.forward(input_ids=input_ids).logits
+    token_logprob = torch.nn.functional.cross_entropy(logits.permute(0, 2, 1), labels, reduction="none").neg()
+
+    # probs = logits.softmax(-1)
+    # token_probs = probs.take_along_dim(dim=-1, indices=labels[..., None]).squeeze(-1)
+
+    out["token_logprob"] = token_logprob.cpu().numpy().tolist()
+
+    return out
+
+
 @hydra.main(version_base=None, config_path="../conf", config_name="eval_conf")
 def main(cfg: DictConfig) -> None:
     # =============================
@@ -167,9 +189,19 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"{cfg.checkpoint=} loaded")
 
     data_path = Path(f"{cfg.data_path}-{tok_path.name}") / "eval_samples"
+    # data_path = Path(cfg.data_path) / tok_path.name
     logger.info(f"Loading data from {data_path=}")
-    dataset = load_from_disk(data_path)
 
+    dataset = load_from_disk(data_path)
+    # HACK
+    # from datatrove.utils.dataset import DatatroveFolderDataset
+    # dataset = DatatroveFolderDataset(
+    #     folder_path=str(data_path),
+    #     filename_pattern=f"{data_path}/*.ds",
+    #     seq_len=2048,
+    #     shuffle=False,
+    #     token_size=2,
+    # )
     dataloader = DataLoader(
         dataset,  # type: ignore
         batch_size=cfg.batch_size,
@@ -207,7 +239,8 @@ def main(cfg: DictConfig) -> None:
 
         # Compute statistics
         with torch.inference_mode():
-            out = compute_statistics(model, batch)  # type: ignore
+            # out = compute_statistics(model, batch)  # type: ignore
+            out = compute_statistics_all_tokens(model, batch)  # type: ignore
         write_buffer.append(out)
 
         # Write to disk

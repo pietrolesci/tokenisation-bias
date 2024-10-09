@@ -32,17 +32,19 @@ hydra:
     chdir: true
   # folder structure
   run:
-    dir: ./outputs/model_train_pl/${run_folder}
+    dir: ./outputs/${out_parent_folder}/${run_folder}
   sweep:
-    dir: ./outputs/multirun/model_train_pl
+    dir: ./outputs/multirun/${out_parent_folder}
     subdir: ${run_folder}_${hydra.job.id}
 
+# convenience
+out_parent_folder: model_train_pl
 
 run_folder: ${model}_${tok_name}_${now:%Y-%m-%d}T${now:%H-%M-%S}
 tok_name: bpe32000minipile
 tok_path: /home/pl487/rdd/outputs/tokenizers/${tok_name} # convenience
 
-train_data_path: /home/pl487/rdd/data/minipile/${tok_name}
+train_data_path: /home/pl487/rdd/data/minipile-train/${tok_name}
 val_data_path: /home/pl487/rdd/data/minipile-eval-${tok_name}/eval_samples
 
 model: gpt2
@@ -72,6 +74,10 @@ optim:
     fused: true
     eps: 1e-8
     betas: [0.9, 0.95]
+  keller_kwargs:
+    layer_name: layers
+    lr_factor: 0.1
+    momentum: 0.95
   scheduler_name: cosine_with_min_lr
   num_warmup_steps: 2000
   scheduler_kwargs:
