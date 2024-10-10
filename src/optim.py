@@ -183,17 +183,6 @@ class HybridLRS(LRScheduler):
         for lr_scheduler in self.lr_schedulers:
             lr_scheduler.step(epoch)
 
-    # @property
-    # def optimizer(self) -> Optimizer:
-    #     return self.lr_schedulers[0].optimizer
-
-    # def __getattribute__(self, __name: str):
-    #     if __name in {"lr_schedulers",}:
-    #         return super().__getattribute__(__name)
-    #     else:
-    #         return self.lr_schedulers[0].__getattribute__(__name)
-
-
 class OrthogonalNesterov(Optimizer):
     """
     Some warnings: This optimizer assumes that all parameters passed in are 2D.
