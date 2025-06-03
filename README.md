@@ -1,9 +1,30 @@
+# Causal Estimation of Tokenisation Bias
+
+<font size = "3">*Pietro Lesci, Clara Meister, Thomas Hofmann, Andreas Vlachos, and Tiago Pimentel*</font>
+
+<br>
+
+This is the official implementation for our ACL 2025 paper: "Causal Estimation of Tokenisation Bias".
+
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-1234.56789-b31b1b.svg)](https://arxiv.org/abs/2406.04327v1) -->
+
+> **Abstract:** Modern language models are typically trained over subword sequences, but ultimately define probabilities over character-strings. Ideally, the choice of the tokeniser---which maps character-strings to subwords---should not affect the probability assigned to the underlying character-string; in practice, it does. We define this mismatch as **tokenisation bias**. In this work, we quantify one particular type of tokenisation bias: the effect of including or not a subword (e.g., $\langle hello \rangle$) in a tokeniser’s vocabulary on the probability a trained model assigns to the corresponding characters (i.e., _"hello"_). Estimating this effect is challenging because each model is trained with only one tokeniser. We address this by framing tokenisation bias as a causal effect and estimating it using the regression discontinuity design.  Specifically, we exploit the fact that tokenisation algorithms rank subwords and add the first $K$ to a tokeniser's vocabulary, where $K$ is an arbitrary cutoff point. As such, we can estimate a causal effect by comparing similar subwords around this cutoff. Experimentally, we find that tokenisation consistently affects models' outputs across scales, vocabularies, and tokenisers.  Notably, a subword's presence in a small model's vocabulary may increase its characters' probability by up to 17 times, highlighting tokenisation as a key design choice in language modelling.
+
+![](./main_plot.png)
+
+Experimental artefacts and datasets are available as part of the [Tokenisation-Bias](https://huggingface.co/collections/pietrolesci/tokenisation-bias-66d5d0b40cb82a2d789b19db) collection on the Hugging Face Hub.
+
+To reproduce our experiments, read below.
+
+
+
+
 ## Setup
 
 Clone the repo with its submodules.
 
 ```bash
-git clone --recurse-submodules https://github.com/pietrolesci/merge-effect.git
+git clone --recurse-submodules https://github.com/pietrolesci/tokenisation-bias.git
 ```
 
 Install environment manager and dependencies.
