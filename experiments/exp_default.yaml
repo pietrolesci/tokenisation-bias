@@ -1,0 +1,52 @@
+# @package _global_
+defaults:
+  - train_conf # <- We are overriding /primer/conf/train_conf.yaml
+  - _self_
+
+# Hydra configuration
+# Either you keep this or add `--config-dir primer/conf` in the CLI
+hydra:
+  searchpath:
+    - file:///${pwd}/primer/conf # Add the primer/conf directory to Hydra's search path
+
+# Customisation
+dataset: minipile
+tok_name: bpe32000minipile # custom
+
+# Folder structure
+pwd: /home/pl487/merge-effect
+
+tok_path: ${pwd}/outputs/tokenizers/${tok_name}
+train_data_path: ${pwd}/data/${dataset}/${tok_name}/train
+val_data_path: ${pwd}/data/${dataset}/${tok_name}/validation
+
+out_parent_folder: model_train
+run_folder: ${model.name}_${dataset}_${tok_name}__${now:%Y-%m-%d}T${now:%H-%M-%S}
+resume_from_checkpoint: .checkpoints/last.ckpt
+
+seed: 42
+
+# This setup assumes 1 A100 GPU with 80GB of memory
+# and we want to achieve 128 effective batch size
+# also assumes a machine with 8 CPUs
+data:
+  batch_size: 32
+  eval_batch_size: 64
+  num_workers: 8
+  shuffle_seed: ${seed}
+
+optim:
+  optim_name: adamw
+  lr: 0.0006
+  grad_acc_schedule: { 0: 4 }
+  weight_decay: 0.1
+  scheduler_name: warmup_stable_decay
+  num_warmup_steps: 2000
+  scheduler_kwargs:
+    num_decay_steps: 2000
+    min_lr_ratio: 0.01
+
+trainer:
+  val_check_interval: 2000
+  max_steps: 50000
+  limit_val_batches: 500

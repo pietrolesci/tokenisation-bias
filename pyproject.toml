@@ -1,0 +1,169 @@
+[project]
+  dependencies = [
+    "duckdb>=1.2.0",
+    # "primer[flash, notebook, plots]",
+    "primer[notebook, plots]",
+    "primer[flash]",
+    "statsmodels>=0.14.4",
+    "tokenizers",
+    "typer-slim>=0.15.2",
+  ]
+  description = "Add your description here"
+  name = "merge-effect"
+  readme = "README.md"
+  requires-python = ">=3.11,<3.12"
+  version = "0.1.0"
+
+[build-system]
+  build-backend = "hatchling.build"
+  requires      = [ "hatchling" ]
+
+[tool.hatch.build.targets.wheel]
+  packages = [ "src" ]
+
+[tool.uv]
+  cache-dir                  = "./.uv_cache"
+  no-build-isolation-package = [ "flash-attn" ]
+
+[tool.uv.sources]
+  primer     = { path = "primer", editable = true }
+  tokenizers = { path = "tokenizers/bindings/python", editable = true }
+
+
+# ===================
+# Ruff Configurations
+# ===================
+[tool.ruff]
+  # Exclude a variety of commonly ignored directories.
+  exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+  ]
+
+  extend-include = [ "*.ipynb" ]
+
+  # Same as Black.
+  line-length = 120
+
+  # Assume Python 3.11
+  target-version = "py311"
+
+
+[tool.ruff.format]
+  indent-style              = "space"
+  quote-style               = "double"
+  skip-magic-trailing-comma = true
+
+
+[tool.ruff.lint]
+  select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+  ]
+
+  ignore = [
+    # # Use `X | Y` for type annotations
+    # "UP007",
+    # # Logging statement uses f-string
+    # "G004",
+    # # Function definitions that include too many arguments (>5)
+    # "PLR0913",
+    # # Comparison to `True` should be `cond is True` or `if cond:`
+    # "E712",
+    # # blanket-type-ignore
+    # "PGH003",
+    # flake8 Indentation contains tabs (W191)
+    "W191",
+  ]
+
+
+  # # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+  # # select = ["E", "F"]
+  # select = [
+  # # pyflakes
+  # "F",
+  # # pycodestyle
+  # "E",
+  # "W",
+  # # flake8-2020
+  # "YTT",
+  # # flake8-bugbear
+  # "B",
+  # # flake8-quotes
+  # "Q",
+  # # flake8-debugger
+  # "T10",
+  # # flake8-gettext
+  # "INT",
+  # # pylint
+  # "PL",
+  # # misc lints
+  # "PIE",
+  # # flake8-pyi
+  # "PYI",
+  # # tidy imports
+  # "TID",
+  # # implicit string concatenation
+  # "ISC",
+  # # type-checking imports
+  # "TCH",
+  # # comprehensions
+  # "C4",
+  # # pygrep-hooks
+  # "PGH",
+  # # Ruff-specific rules
+  # "RUF",
+  # # flake8-bandit: exec-builtin
+  # "S102",
+  # # numpy-legacy-random
+  # "NPY002",
+  # # Perflint
+  # "PERF",
+  # # flynt
+  # "FLY",
+  # # flake8-logging-format
+  # "G",
+  # ]
+
+
+  # Allow autofix for all enabled rules (when `--fix`) is provided.
+  # fix = true
+  # fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+  # unfixable = [  ]
+
+[tool.ruff.lint.isort]
+  combine-as-imports      = true
+  split-on-trailing-comma = false
+
+[tool.ruff.lint.mccabe]
+  # Unlike Flake8, default to a complexity level of 10.
+  max-complexity = 10
