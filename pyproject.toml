@@ -9,7 +9,7 @@
     "typer-slim>=0.15.2",
   ]
   description = "Add your description here"
-  name = "merge-effect"
+  name = "tokenisation-bias"
   readme = "README.md"
   requires-python = ">=3.11,<3.12"
   version = "0.1.0"
