@@ -24,7 +24,8 @@ To reproduce our experiments, read below.
 Clone the repo with its submodules.
 
 ```bash
-git clone --recurse-submodules https://github.com/pietrolesci/tokenisation-bias.git
+git clone --recurse-submodules https://github.com/pietrolesci/tokenisation-bias.git  
+# this should load the repo pietrolesci/primer (branch=tok-bias) as a submodule
 ```
 
 Install environment manager and dependencies.
