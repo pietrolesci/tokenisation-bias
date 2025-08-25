@@ -1,7 +1,4 @@
-[submodule "tokenizers"]
-	path = tokenizers
-	url = https://github.com/pietrolesci/tokenizers.git
 [submodule "primer"]
 	path = primer
 	url = https://github.com/pietrolesci/primer.git
-	branch = repo-tokenisation-bias
+	branch = tok-bias

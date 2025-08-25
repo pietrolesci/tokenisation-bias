@@ -27,7 +27,6 @@
 
 [tool.uv.sources]
   primer     = { path = "primer", editable = true }
-  tokenizers = { path = "tokenizers/bindings/python", editable = true }
 
 
 # ===================
